@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Data Transformer</title>
+  <link rel="stylesheet" href="https://unpkg.com/chota">
+  <% include ../partials/header.ejs %>
+</head>
+  <body>
+
+    <div class="navPanel" style="background-color: var(--color-darkGrey);">
+      <div class="homeDiv">
+       
+      </div>
+    </div>
+
+     <form method="post" action="/uploadFile" enctype="multipart/form-data" id="csvUploadForm">
+      <div style="margin:0.5% 3%">
+        <div class="row" id="rowDiv">
+          <div class="col-4">
+           
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Data Extraction / Upload</h4>
+                      Object Name
+                      <input type="text" name="objectName"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/download.svg?size=128&color=3CAEA3" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <p>
+                  Upload the CSV for Analysis here and click 'Analyze'
+                </p>
+                <footer class="is-right">
+                  <input type="file" name="csvFile" accept="csv" id="csvFile"></input>
+                </footer>
+                <footer class="is-right">
+                  <button type="submit" class="button primary" id="analyzeBtn" onclick="return checkFile();">Analyze</button>
+                </footer>
+                <p>
+                  Or, Provide the Query here, to extract using Bulk API
+                  <div>
+                    <textarea name="queryText" rows="5" cols="30" id="queryText"></textarea>
+                  </div>
+                </p>
+                <footer class="is-right">
+                  <button type="submit" class="button primary" id="extractBtn" onclick="return checkQuery()">Extract</button>
+                </footer>
+              </div>
+          </div>
+          <div class="col-5">
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Data Transformation</h4>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/cog.svg?size=128&color=20639B" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <p>
+                  <div id="csvAnalysis">
+
+                    Waiting for File Upload...
+
+                  </div>
+                </p>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="transformBtn" onclick="on();transform()" disabled>Transform</button>
+                </footer>
+              </div>
+          </div>
+          <div class="col-3">
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Output</h4>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/upload-to-cloud.svg?size=128&color=fcc003" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <p>
+                 <div id="fileDownload">
+                    Transformed File Link will appear Here for Download
+                 </div>
+                </p>
+                <footer class="is-right" id="downloadFooter">
+                 <!-- <a href="/downloadFile" class="button primary">Download</a>-->
+                </footer>
+                <p>
+                  <div id="uploadedJobDiv">
+                    Or, Upload back using Bulk API
+                  </div>
+                </p>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="uploadBtn" disabled onclick="uploadSF()">Upload to Salesforce</button>
+                </footer>
+              </div>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <div id="overlay">
+      <div class="loader"></div>
+    </div>
+
+</body>
+
+
+
+<script>
+
+    off();
+    var headerData = <%- JSON.stringify(headerData) %>;
+    var headerDataJSON = JSON.parse(headerData);
+
+    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Random Text (4 chars)', 'Random Text (8 chars)', 'Clear']; 
+    var actionSelect = document.createElement('select');
+    actions.forEach(function(item, index){
+
+      var optionElement = document.createElement("option");
+      optionElement.value = item;
+      optionElement.text = item;
+      actionSelect.appendChild(optionElement);
+
+    });
+
+    if(headerDataJSON.headers && headerDataJSON.headers.length > 0){
+      
+
+      headersDiv = document.getElementById("csvAnalysis");
+      removeAllChildren(headersDiv);
+
+      var rowsDiv = document.createElement("div");
+      rowsDiv.innerHTML = "Number of Rows - "+headerDataJSON.rowCount;
+      rowsDiv.className = "titleDiv";
+
+      headersDiv.appendChild(rowsDiv);
+
+
+      var titleDiv = document.createElement("div");
+      titleDiv.innerHTML = "Select the Transformation mode for each column";
+      titleDiv.className = "titleDiv";
+
+      headersDiv.appendChild(titleDiv);
+
+      headerDataJSON.headers.forEach(function(header, index){
+
+        var hdrDiv = document.createElement("div");
+        hdrDiv.className = "row";
+      
+        var hdrRowCol = document.createElement("div");
+        hdrRowCol.className = "col-6";
+
+          var hdrCol = document.createElement("div");
+          hdrCol.innerHTML = header;
+        
+        hdrRowCol.appendChild(hdrCol);
+        hdrDiv.appendChild(hdrRowCol);
+
+        hdrRowCol = document.createElement("div");
+        hdrRowCol.className = "col-6";
+
+          var itemCombo = actionSelect.cloneNode(true);
+          itemCombo.name = header;
+          itemCombo.id = header;
+          itemCombo.className = "actionItem";
+          if(header.toLowerCase() == 'id'){
+            itemCombo.disabled = true;
+          }
+         
+        hdrRowCol.appendChild(itemCombo);
+        hdrDiv.appendChild(hdrRowCol);
+
+        headersDiv.appendChild(hdrDiv);
+
+      });
+
+      document.getElementById("analyzeBtn").disabled = true;
+      document.getElementById("extractBtn").disabled = true;
+      document.getElementById("transformBtn").disabled = false;
+
+    }
+
+    function uploadSF(){
+
+      on();
+      var xhttp = new XMLHttpRequest();
+      xhttp.open("POST", "/uploadSF", true);
+      xhttp.setRequestHeader('Content-Type', 'application/json');
+      xhttp.onreadystatechange = function() {
+
+          if (this.readyState == 4 && this.status == 200) {
+            off();
+            document.getElementById("uploadBtn").disabled = true;
+            console.log(this.response);
+            var jsonResponse = JSON.parse(this.response);
+
+            var upDiv = document.getElementById("uploadedJobDiv");
+            upDiv.innerHTML = "The Upload Job has been submitted to Salesforce with Job Id "+jsonResponse.jobId;
+
+          }
+      }
+      
+      xhttp.send();
+
+    }
+
+    function transform(){
+
+      var xhttp = new XMLHttpRequest();
+      xhttp.open("POST", "/transformFile", true);
+      xhttp.setRequestHeader('Content-Type', 'application/json');
+      xhttp.onreadystatechange = function() {
+
+          if (this.readyState == 4 && this.status == 200) {
+
+            console.log(this.response);
+            var jsonResponse = JSON.parse(this.response);
+
+            footerDiv = document.getElementById("downloadFooter");
+
+            var linkDwn = document.createElement("a");
+            linkDwn.innerHTML = "Download";
+            linkDwn.href = "/downloadFile";
+            linkDwn.className = "button primary";
+
+            footerDiv.appendChild(linkDwn);
+
+            document.getElementById("fileDownload").innerHTML = "File is now available for Download";
+            document.getElementById("transformBtn").disabled = true;
+            document.getElementById("uploadBtn").disabled = false;
+            off();
+
+          }
+      }
+      
+      let allActions = document.getElementsByClassName('actionItem');
+      var data = {};
+      [...allActions].forEach(function(element){
+        data[element.name] = element.value;
+      });
+      xhttp.send(JSON.stringify({ data: data }));
+      
+    }
+
+    function removeAllChildren(parent){
+        while (parent.firstChild) {
+            parent.removeChild(parent.firstChild);
+        }
+    }
+
+    function on() {
+      document.getElementById("overlay").style.display = "block";
+    }
+
+    function off() {
+      document.getElementById("overlay").style.display = "none";
+    }
+
+    function checkFile(){
+      var files = document.getElementById("csvFile").files;
+      if(files && files.length > 0){
+        on();
+        return true;
+      }
+      alert('Please select a File');
+      return false;
+    }
+
+    function checkQuery(){
+      var txt = document.getElementById("queryText").value;
+      if(txt != ''){
+        on();
+        return true;
+      }
+      alert('Please enter a query');
+      return false;
+    }
+    
+
+</script>
+
+</html>
