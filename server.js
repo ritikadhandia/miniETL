@@ -7,10 +7,8 @@ const bodyParser = require('body-parser');
 var fs = require('fs');
 const util = require('util');
 const csv = require('fast-csv');
-
 const dotenv = require('dotenv');
 dotenv.config();
-
 const jsforce = require('jsforce');
 const sfbulk = require('node-sf-bulk2');
 const characters  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -18,6 +16,9 @@ const pollFreqency = process.env.pollfrequency || 10000;
 const PORT = process.env.PORT || 5000
 
 const outputFile = __dirname + '/output.csv';
+const failedResultsFile = __dirname + '/failedResults.csv';
+
+// Global variables to be used between calls
 var csvFilePath;
 var csvString;
 var bulkconnect;
@@ -36,11 +37,9 @@ app.listen(PORT, () => console.log(`Listening on ${ PORT }`));
 app.get('/', function(req, resp){
     
     //testFailedResults();
-
     var headersData = {
       "headers":[]
     }
-
     resp.render('pages/main', {
       headerData: JSON.stringify(headersData)
     });
@@ -49,28 +48,95 @@ app.get('/', function(req, resp){
 app.get('/downloadFile', (req, res) => {
 
   res.download(outputFile, 'output.csv', function(err){
-      //CHECK FOR ERROR
+      /*
       fs.unlink(outputFile, function(err){
         console.log('File Removed');
       });
+      */
+  });
+})
+
+app.get('/downloadFailedFile', (req, res) => {
+
+  res.download(failedResultsFile, 'failedResults.csv', function(err){
+      /*
+      fs.unlink(outputFile, function(err){
+        console.log('File Removed');
+      });
+      */
   });
 
-})
+});
+
+app.post('/fetchJobStatus', function(req, res){
+
+  var jobId = req.body.jobId;
+  loginProcess()
+  .then(function(){
+    console.log('login finished');
+    return getJobStatus(jobId);
+  })
+  .then(function(response){
+    console.log(response);
+    res.status(200).json({ status: 'success', response : response });
+  })
+  .catch(function (error) {
+    console.log(error);
+    res.status(200).json({ status: 'error', error : error });
+  });
+
+
+});
+
+app.post('/fetchFailedResults', function(req, res){
+
+  var jobId = req.body.jobId;
+
+  const writeStream = fs.createWriteStream(failedResultsFile);
+  writeStream.on("finish", function(){
+    res.status(200).json({ a: 1 });
+  });
+
+  const transform = csv.format({ headers: true })
+    .transform((row) => {
+      return row;
+  });
+
+  loginProcess()
+  .then(function(){
+    console.log('login finished');
+    return getFailedResults(jobId);
+  })
+  .then(function(responseString){
+    csv.parseString(responseString, { headers: true })
+    .pipe(transform)
+    .pipe(writeStream);
+      
+  })
+  .catch(function (error) {
+    console.log(error);
+    res.status(200).json({ status: 'error', error : error });
+  });
+
+});
 
 app.post('/uploadSF', function(req, res){
 
   loginProcess()
-    .then(function(){
-      console.log('login finished');
-      return submitBulkUploadJob()
-    })
-    .then(function(jobId){
-      fs.unlink(outputFile, function(err){
-        console.log('File Removed');
-      });
-      console.log('upload job started with job id '+jobId);
-      res.status(200).json({ jobId: jobId });
-    })
+  .then(function(){
+    console.log('login finished');
+    return submitBulkUploadJob()
+  })
+  .then(function(jobId){
+    fs.unlink(outputFile, function(err){
+      console.log('File Removed');
+    });
+    console.log('upload job started with job id '+jobId);
+    res.status(200).json({ jobId: jobId});
+  })
+  .catch(function (error) {
+    res.status(200).json({ status: 'error', error : error });
+  });
 })
 
 app.post('/transformFile', function(req, res){
@@ -87,7 +153,9 @@ app.post('/transformFile', function(req, res){
       let returnVal = {};
       Object.keys(columnParams).forEach(function(key){
      
-        returnVal[key] = transformData(columnParams[key], row[key]);
+        if(columnParams[key] != 'Do Not Map'){
+          returnVal[key] = transformData(columnParams[key], row[key]);
+        }
      
       });
       return returnVal;
@@ -120,11 +188,14 @@ function transformData(type, a){
       case 'Random Phone':
           a = randomPhone();
           break;
-      case 'Random Text (4 chars)':
-          a = randomText(4);
+      case 'Random Past Date':
+          a = randomPastDate(a);
           break;
-      case 'Random Text (8 chars)':
-          a = randomText(8);
+      case 'Random Future Date':
+          a = randomFutureDate(a);
+          break;
+      case 'Random Past Date Time':
+          a = randomPastDateTime(a);
           break;
       case 'Clear':
           a = ''
@@ -136,8 +207,56 @@ function transformData(type, a){
     return a;
 }
 
-function randomPhone(){
-  return Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000);
+function getRandomDate(start, end) {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+}
+
+function randomPastDateTime(a){
+
+  if(a && a != ''){
+    const d = new Date(a);
+    if(d instanceof Date && !isNaN(d)){
+      d.setDate(d.getDate()-10);
+      var randomDate = getRandomDate(new Date(1950, 0, 1), d);
+      a = randomDate.toISOString();
+    }
+  }
+  return a;
+  
+}
+
+function randomPastDate(a){
+  if(a && a != ''){
+    const d = new Date(a);
+    if(d instanceof Date && !isNaN(d)){
+      d.setDate(d.getDate()-10);
+      var randomDate = getRandomDate(new Date(1950, 0, 1), d);
+      a = randomDate.toISOString().split('T')[0];
+    }
+  }
+  return a;
+
+}
+
+function randomFutureDate(a){
+
+    if(a && a != ''){
+      const d = new Date(a);
+      if(d instanceof Date && !isNaN(d)){
+        d.setDate(d.getDate()+10);
+        var randomDate = getRandomDate(d, new Date(2050, 0, 1));
+        a = randomDate.toISOString().split('T')[0];
+      }
+    }
+    return a;
+
+}
+
+function randomPhone(a){
+  if(a && a != ''){
+    return Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000);
+  }
+  return a;
 }
 
 function randomText(cnt){
@@ -320,25 +439,32 @@ async function submitBulkUploadJob(){
               return Promise.resolve(response.id);
           }
       }
+      else{
+        return Promise.reject('Object name not Present');  
+      }
   } catch (ex) {
       return Promise.reject(ex);
   }
 }
 
-function testFailedResults(){
-  loginProcess()
-  .then(async function(){
+async function getJobStatus(jobId){
 
-    // create a new BulkAPI2 class
-      const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
-      const response = await bulkrequest.getResults('75072000000kxI1AAI', 'failedResults');
-      if(response){
-        console.log(response);
-      }
+  const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
+  const response = await bulkrequest.getIngestJobInfo(jobId);
+  console.log(JSON.stringify(response));
+  console.log(JSON.parse(JSON.stringify(response)))
+  return Promise.resolve(JSON.parse(JSON.stringify(response)));
 
-  })
 }
 
+
+async function getFailedResults(jobId){
+
+  const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
+  const response = await bulkrequest.getResults(jobId, 'failedResults');
+  return Promise.resolve(response);
+
+}
 
 async function loginProcess(){
 

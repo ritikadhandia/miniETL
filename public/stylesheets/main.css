@@ -163,6 +163,7 @@
   xcursor: pointer;
   font-size: 14px;
   xheight: 250px;
+  margin-top: 10px;
 }
 
 #overlay {

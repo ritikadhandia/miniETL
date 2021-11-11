@@ -17,12 +17,11 @@
       <div style="margin:0.5% 3%">
         <div class="row" id="rowDiv">
           <div class="col-4">
-           
               <div class="mainCard card">
                 <header>
                   <div class="row">
                     <div class="col-10">
-                      <h4>Data Extraction / Upload</h4>
+                      <h4>Data Extraction / File Upload</h4>
                       Object Name
                       <input type="text" name="objectName"/>
                     </div>
@@ -43,11 +42,28 @@
                 <p>
                   Or, Provide the Query here, to extract using Bulk API
                   <div>
-                    <textarea name="queryText" rows="5" cols="30" id="queryText"></textarea>
+                    <textarea name="queryText" rows="3" cols="30" id="queryText"></textarea>
                   </div>
                 </p>
                 <footer class="is-right">
                   <button type="submit" class="button primary" id="extractBtn" onclick="return checkQuery()">Extract</button>
+                </footer>
+              </div>
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Extract Failed Results for Job</h4>
+                      Enter Job Id
+                      <input type="text" id="jobIdInput"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/warning.svg?size=128&color=d43939" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="resultBtn" onclick="return fetchFailedResults();">Fetch</button>
                 </footer>
               </div>
           </div>
@@ -65,9 +81,7 @@
                 </header>
                 <p>
                   <div id="csvAnalysis">
-
                     Waiting for File Upload...
-
                   </div>
                 </p>
                 <footer class="is-right">
@@ -104,6 +118,29 @@
                   <button type="button" class="button primary" id="uploadBtn" disabled onclick="uploadSF()">Upload to Salesforce</button>
                 </footer>
               </div>
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Fetch Job Status</h4>
+                      Enter Job Id
+                      <input type="text" id="jobIdIputResults"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/progress-two.svg?size=128&color=14854f" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="statusBtn" onclick="return fetchJobStatus();">Get Status</button>
+                </footer>
+                <footer>
+                  <p>
+                    <div id="jobStatusResultDiv">
+                    </div>
+                  </p>
+                </footer>
+              </div>
           </div>
         </div>
       </div>
@@ -116,14 +153,13 @@
 </body>
 
 
-
 <script>
 
     off();
     var headerData = <%- JSON.stringify(headerData) %>;
     var headerDataJSON = JSON.parse(headerData);
 
-    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Random Text (4 chars)', 'Random Text (8 chars)', 'Clear']; 
+    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Clear', 'Random Past Date', 'Random Future Date', 'Random Past Date Time', 'Do Not Map']; 
     var actionSelect = document.createElement('select');
     actions.forEach(function(item, index){
 
@@ -135,7 +171,6 @@
     });
 
     if(headerDataJSON.headers && headerDataJSON.headers.length > 0){
-      
 
       headersDiv = document.getElementById("csvAnalysis");
       removeAllChildren(headersDiv);
@@ -148,7 +183,7 @@
 
 
       var titleDiv = document.createElement("div");
-      titleDiv.innerHTML = "Select the Transformation mode for each column";
+      titleDiv.innerHTML = "Select the Transformation mode for each column. Only non blank values are jumbled up or randomized. Future and past are with respect to the existing values in date fields";
       titleDiv.className = "titleDiv";
 
       headersDiv.appendChild(titleDiv);
@@ -191,6 +226,80 @@
 
     }
 
+    function fetchJobStatus(){
+
+      let jobId = document.getElementById("jobIdIputResults").value;
+      if(jobId != ""){
+        on();
+        var xhttp = new XMLHttpRequest();
+        xhttp.open("POST", "/fetchJobStatus", true);
+        xhttp.setRequestHeader('Content-Type', 'application/json');
+        xhttp.onreadystatechange = function() {
+
+            if (this.readyState == 4 && this.status == 200) {
+              
+              console.log(this.response);
+              var jsonResponse = JSON.parse(this.response);
+              off();
+              if(jsonResponse.status == 'success'){
+                document.getElementById("jobStatusResultDiv").innerHTML = "Job Status : "+ jsonResponse.response.state+
+                "<br/>"+"Number of records Processed : "+jsonResponse.response.numberRecordsProcessed +
+                "<br/>"+"Number of records Failed : "+jsonResponse.response.numberRecordsFailed;
+              }
+              else{
+                alert('Error'+ jsonResponse.error);
+              }
+              // Provide Download Link
+              //pollJobStatus(jobId)
+            }
+        }
+        xhttp.send(JSON.stringify({ jobId: jobId }));        
+      }
+      else{
+        alert('Please enter a Valid Job Id');
+        return false;
+      }
+
+    }
+
+    function fetchFailedResults(){
+      let jobId = document.getElementById("jobIdInput").value;
+      if(jobId != ""){
+        on();
+        var xhttp = new XMLHttpRequest();
+        xhttp.open("POST", "/fetchFailedResults", true);
+        xhttp.setRequestHeader('Content-Type', 'application/json');
+        xhttp.onreadystatechange = function() {
+
+            if (this.readyState == 4 && this.status == 200) {
+              
+              console.log(this.response);
+              footerDiv = document.getElementById("downloadFooter");
+              removeAllChildren(footerDiv);
+
+              var linkDwn = document.createElement("a");
+              linkDwn.innerHTML = "Download Failed Results";
+              linkDwn.href = "/downloadFailedFile";
+              linkDwn.id = "downloadFailedBtn";
+              linkDwn.className = "button primary";
+
+              footerDiv.appendChild(linkDwn);
+
+              document.getElementById("fileDownload").innerHTML = "The Failed Results File is now available for Download.";
+              off();
+              // Provide Download Link
+              //pollJobStatus(jobId)
+            }
+        }
+        xhttp.send(JSON.stringify({ jobId: jobId }));        
+      }
+      else{
+        alert('Please enter a Valid Job Id');
+        return false;
+      }
+    }
+
+
     function uploadSF(){
 
       on();
@@ -201,12 +310,17 @@
 
           if (this.readyState == 4 && this.status == 200) {
             off();
-            document.getElementById("uploadBtn").disabled = true;
+            
             console.log(this.response);
             var jsonResponse = JSON.parse(this.response);
 
             var upDiv = document.getElementById("uploadedJobDiv");
             upDiv.innerHTML = "The Upload Job has been submitted to Salesforce with Job Id "+jsonResponse.jobId;
+
+            document.getElementById("uploadBtn").disabled = true;
+            document.getElementById("fileDownload").innerHTML = "The file has now been removed from local filesystem";
+            var elem = document.getElementById("downloadBtn");
+            elem.parentNode.removeChild(elem);
 
           }
       }
@@ -228,17 +342,20 @@
             var jsonResponse = JSON.parse(this.response);
 
             footerDiv = document.getElementById("downloadFooter");
+            removeAllChildren(footerDiv);
 
             var linkDwn = document.createElement("a");
             linkDwn.innerHTML = "Download";
             linkDwn.href = "/downloadFile";
+            linkDwn.id = "downloadBtn";
             linkDwn.className = "button primary";
 
             footerDiv.appendChild(linkDwn);
 
-            document.getElementById("fileDownload").innerHTML = "File is now available for Download";
+            document.getElementById("fileDownload").innerHTML = "Transformed File is now available for Download.";
             document.getElementById("transformBtn").disabled = true;
             document.getElementById("uploadBtn").disabled = false;
+            
             off();
 
           }
