@@ -23,7 +23,7 @@
                     <div class="col-10">
                       <h4>Data Extraction / File Upload</h4>
                       Object Name
-                      <input type="text" name="objectName"/>
+                      <input type="text" name="objectName" id="objectName"/>
                     </div>
                     <div class="col-2 text-right">
                       <img src="https://icongr.am/entypo/download.svg?size=128&color=3CAEA3" class="imgIcon"/>
@@ -80,7 +80,13 @@
                   </div>
                 </header>
                 <p>
-                  <div id="csvAnalysis">
+                  <div>
+                    Select the Transformation mode for each column. Only non blank values are jumbled up or randomized. Future and past are with respect to the existing values in the fields.
+                    <br/>
+                    <div style="color:red">Be careful in selecting the mode</div>
+                  </div>
+                  <br/>
+                  <div id="csvAnalysis" style="font-weight: bold;">
                     Waiting for File Upload...
                   </div>
                 </p>
@@ -112,6 +118,22 @@
                 <p>
                   <div id="uploadedJobDiv">
                     Or, Upload back using Bulk API
+                  <br/>
+                  <br/>
+                  Operation Type
+                  <select name="operationType" id="operationType" disabled onchange="validateSelection()">
+                    <option name="insert" value="insert">insert</option>
+                    <option name="update" value="update">update</option>
+                    <option name="upsert" value="upsert">upsert</option>
+                    <option name="delete" value="delete">delete</option>
+                    <option name="harddelete" value="harddelete">harddelete</option>
+                  </select>
+                  <br/>
+                  <br/>
+                  <div id="extIdField" style="display: none;">
+                    External Id Field Name
+                    <input type="text" name="extIdField" id="extIdField"/>
+                  </div>
                   </div>
                 </p>
                 <footer class="is-right">
@@ -159,7 +181,8 @@
     var headerData = <%- JSON.stringify(headerData) %>;
     var headerDataJSON = JSON.parse(headerData);
 
-    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Clear', 'Random Past Date', 'Random Future Date', 'Random Past Date Time', 'Do Not Map']; 
+    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Clear', 'Random Past Date', 'Random Future Date', 'Random Past Date Time', 'Exclude']; 
+    
     var actionSelect = document.createElement('select');
     actions.forEach(function(item, index){
 
@@ -182,11 +205,13 @@
       headersDiv.appendChild(rowsDiv);
 
 
+/*
       var titleDiv = document.createElement("div");
       titleDiv.innerHTML = "Select the Transformation mode for each column. Only non blank values are jumbled up or randomized. Future and past are with respect to the existing values in date fields";
       titleDiv.className = "titleDiv";
 
       headersDiv.appendChild(titleDiv);
+*/
 
       headerDataJSON.headers.forEach(function(header, index){
 
@@ -209,10 +234,7 @@
           itemCombo.name = header;
           itemCombo.id = header;
           itemCombo.className = "actionItem";
-          if(header.toLowerCase() == 'id'){
-            itemCombo.disabled = true;
-          }
-         
+          
         hdrRowCol.appendChild(itemCombo);
         hdrDiv.appendChild(hdrRowCol);
 
@@ -224,6 +246,18 @@
       document.getElementById("extractBtn").disabled = true;
       document.getElementById("transformBtn").disabled = false;
 
+    }
+
+    function validateSelection(){
+      var txt = document.getElementById("operationType").value;
+      var extField = document.getElementById("extIdField");
+      
+      if(txt == 'upsert'){
+        extField.style.display = 'block';
+      }
+      else{
+        extField.style.display = 'none';
+      }
     }
 
     function fetchJobStatus(){
@@ -318,14 +352,17 @@
             upDiv.innerHTML = "The Upload Job has been submitted to Salesforce with Job Id "+jsonResponse.jobId;
 
             document.getElementById("uploadBtn").disabled = true;
+            document.getElementById("operationType").disabled = true;
             document.getElementById("fileDownload").innerHTML = "The file has now been removed from local filesystem";
             var elem = document.getElementById("downloadBtn");
             elem.parentNode.removeChild(elem);
 
           }
       }
+
+      let opType = document.getElementById("operationType").value;
       
-      xhttp.send();
+      xhttp.send(JSON.stringify({operationType : opType}));
 
     }
 
@@ -355,6 +392,7 @@
             document.getElementById("fileDownload").innerHTML = "Transformed File is now available for Download.";
             document.getElementById("transformBtn").disabled = true;
             document.getElementById("uploadBtn").disabled = false;
+            document.getElementById("operationType").disabled = false;
             
             off();
 
@@ -386,21 +424,23 @@
 
     function checkFile(){
       var files = document.getElementById("csvFile").files;
-      if(files && files.length > 0){
+      var objName = document.getElementById("objectName").value;
+      if(files && files.length > 0 && objName != ''){
         on();
         return true;
       }
-      alert('Please select a File');
+      alert('Please select a File and add an Object Name');
       return false;
     }
 
     function checkQuery(){
       var txt = document.getElementById("queryText").value;
-      if(txt != ''){
+      var objName = document.getElementById("objectName").value;
+      if(txt != '' && objName != ''){
         on();
         return true;
       }
-      alert('Please enter a query');
+      alert('Please enter a query and an Object Name');
       return false;
     }
     

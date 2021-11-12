@@ -122,10 +122,12 @@ app.post('/fetchFailedResults', function(req, res){
 
 app.post('/uploadSF', function(req, res){
 
+  var opType = req.body.operationType;
+
   loginProcess()
   .then(function(){
     console.log('login finished');
-    return submitBulkUploadJob()
+    return submitBulkUploadJob(opType)
   })
   .then(function(jobId){
     fs.unlink(outputFile, function(err){
@@ -153,7 +155,7 @@ app.post('/transformFile', function(req, res){
       let returnVal = {};
       Object.keys(columnParams).forEach(function(key){
      
-        if(columnParams[key] != 'Do Not Map'){
+        if(columnParams[key] != 'Exclude'){
           returnVal[key] = transformData(columnParams[key], row[key]);
         }
      
@@ -416,7 +418,7 @@ async function submitBulkQueryJob(queryText){
     }
 }
 
-async function submitBulkUploadJob(){
+async function submitBulkUploadJob(operationType){
   try {
       console.log('bulk upload started');
       // create a new BulkAPI2 class
@@ -424,7 +426,7 @@ async function submitBulkUploadJob(){
       // create a bulk update job
       const jobRequest = {
           'object': objectName,
-          'operation': 'update'
+          'operation': operationType
       };
       const response = await bulkrequest.createDataUploadJob(jobRequest);
       if (response.id) {
