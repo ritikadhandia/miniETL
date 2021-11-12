@@ -13,7 +13,7 @@
       </div>
     </div>
 
-     <form method="post" action="/uploadFile" enctype="multipart/form-data" id="csvUploadForm">
+     <form method="post" action="/" enctype="multipart/form-data" id="csvUploadForm">
       <div style="margin:0.5% 3%">
         <div class="row" id="rowDiv">
           <div class="col-4">
@@ -121,23 +121,23 @@
                   <br/>
                   <br/>
                   Operation Type
-                  <select name="operationType" id="operationType" disabled onchange="validateSelection()">
+                  <select name="operationType" id="operationType" onchange="validateSelection()">
                     <option name="insert" value="insert">insert</option>
                     <option name="update" value="update">update</option>
                     <option name="upsert" value="upsert">upsert</option>
                     <option name="delete" value="delete">delete</option>
-                    <option name="harddelete" value="harddelete">harddelete</option>
+                    <option name="harddelete" value="hardDelete">harddelete</option>
                   </select>
                   <br/>
                   <br/>
-                  <div id="extIdField" style="display: none;">
+                  <div id="extIdFieldDiv" style="display: none;">
                     External Id Field Name
                     <input type="text" name="extIdField" id="extIdField"/>
                   </div>
                   </div>
                 </p>
                 <footer class="is-right">
-                  <button type="button" class="button primary" id="uploadBtn" disabled onclick="uploadSF()">Upload to Salesforce</button>
+                  <button type="button" class="button primary" id="uploadBtn" onclick="uploadSF()">Upload to Salesforce</button>
                 </footer>
               </div>
               <div class="mainCard card">
@@ -250,7 +250,7 @@
 
     function validateSelection(){
       var txt = document.getElementById("operationType").value;
-      var extField = document.getElementById("extIdField");
+      var extField = document.getElementById("extIdFieldDiv");
       
       if(txt == 'upsert'){
         extField.style.display = 'block';
@@ -336,6 +336,16 @@
 
     function uploadSF(){
 
+      let opType = document.getElementById("operationType").value;
+      var extField = document.getElementById("extIdField").value;
+     
+      console.log(extField);
+      console.log(opType);
+      if(opType == 'upsert' && (!extField || extField == '')){
+        alert('Please add an External Id Field for Upsert');
+        return false;
+      }
+
       on();
       var xhttp = new XMLHttpRequest();
       xhttp.open("POST", "/uploadSF", true);
@@ -349,20 +359,25 @@
             var jsonResponse = JSON.parse(this.response);
 
             var upDiv = document.getElementById("uploadedJobDiv");
-            upDiv.innerHTML = "The Upload Job has been submitted to Salesforce with Job Id "+jsonResponse.jobId;
+            if(jsonResponse.status == 'success'){
+
+              upDiv.innerHTML = "The Upload Job has been submitted to Salesforce with Job Id "+jsonResponse.jobId;
+              document.getElementById("fileDownload").innerHTML = "The file has now been removed from local filesystem";
+            }
+            else{
+              upDiv.innerHTML = "The Job could not be submitted. Error - "+ jsonResponse.error.message; 
+            }
 
             document.getElementById("uploadBtn").disabled = true;
-            document.getElementById("operationType").disabled = true;
-            document.getElementById("fileDownload").innerHTML = "The file has now been removed from local filesystem";
+            
             var elem = document.getElementById("downloadBtn");
             elem.parentNode.removeChild(elem);
 
           }
       }
 
-      let opType = document.getElementById("operationType").value;
       
-      xhttp.send(JSON.stringify({operationType : opType}));
+      xhttp.send(JSON.stringify({operationType : opType, 'externalIdField' : extField}));
 
     }
 

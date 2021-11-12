@@ -123,18 +123,19 @@ app.post('/fetchFailedResults', function(req, res){
 app.post('/uploadSF', function(req, res){
 
   var opType = req.body.operationType;
+  var extField = req.body.externalIdField;
 
   loginProcess()
   .then(function(){
     console.log('login finished');
-    return submitBulkUploadJob(opType)
+    return submitBulkUploadJob(opType, extField)
   })
   .then(function(jobId){
     fs.unlink(outputFile, function(err){
       console.log('File Removed');
     });
     console.log('upload job started with job id '+jobId);
-    res.status(200).json({ jobId: jobId});
+    res.status(200).json({ status: 'success', jobId: jobId});
   })
   .catch(function (error) {
     res.status(200).json({ status: 'error', error : error });
@@ -297,7 +298,7 @@ function isEmail(a){
 }
 
 
-app.post('/uploadFile', function(req, res){
+app.post('/', function(req, res){
 
   console.log('Data Ex started');
   var form = new formidable.IncomingForm();
@@ -339,9 +340,7 @@ app.post('/uploadFile', function(req, res){
         });
       })
       .catch(function(err){
-        res.render('pages/result', {
-          resultText: JSON.stringify(err)
-        });
+        res.status(200).json({ status: 'error', error : err });
       })
     }
 
@@ -418,7 +417,7 @@ async function submitBulkQueryJob(queryText){
     }
 }
 
-async function submitBulkUploadJob(operationType){
+async function submitBulkUploadJob(operationType, extField){
   try {
       console.log('bulk upload started');
       // create a new BulkAPI2 class
@@ -426,8 +425,14 @@ async function submitBulkUploadJob(operationType){
       // create a bulk update job
       const jobRequest = {
           'object': objectName,
-          'operation': operationType
+          'operation': operationType,
+          'contentType':'CSV'
       };
+
+      if(operationType == 'upsert'){
+        jobRequest["externalIdFieldName"] = extField;
+      }
+
       const response = await bulkrequest.createDataUploadJob(jobRequest);
       if (response.id) {
           console.log('upload job created' + response.id);
