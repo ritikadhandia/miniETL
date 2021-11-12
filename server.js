@@ -156,8 +156,8 @@ app.post('/transformFile', function(req, res){
       Object.keys(columnParams).forEach(function(key){
      
         if(columnParams[key] != 'Exclude'){
-          returnVal[key] = transformData(columnParams[key], row[key]);
-        }
+          var a = row[key]?row[key]:'';
+          returnVal[key] = transformData(columnParams[key], a);        }
      
       });
       return returnVal;

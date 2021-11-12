@@ -34,7 +34,7 @@
                   Upload the CSV for Analysis here and click 'Analyze'
                 </p>
                 <footer class="is-right">
-                  <input type="file" name="csvFile" accept="csv" id="csvFile"></input>
+                  <input type="file" name="csvFile" accept=".csv" id="csvFile"></input>
                 </footer>
                 <footer class="is-right">
                   <button type="submit" class="button primary" id="analyzeBtn" onclick="return checkFile();">Analyze</button>
@@ -181,7 +181,7 @@
     var headerData = <%- JSON.stringify(headerData) %>;
     var headerDataJSON = JSON.parse(headerData);
 
-    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Clear', 'Random Past Date', 'Random Future Date', 'Random Past Date Time', 'Exclude']; 
+    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Random Past Date', 'Random Future Date', 'Random Past Date Time', 'Clear','Exclude']; 
     
     var actionSelect = document.createElement('select');
     actions.forEach(function(item, index){
