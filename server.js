@@ -189,7 +189,7 @@ function transformData(type, a){
           a = scrambleEmail(a);
           break;
       case 'Random Phone':
-          a = randomPhone();
+          a = randomPhone(a);
           break;
       case 'Random Past Date':
           a = randomPastDate(a);
@@ -256,7 +256,9 @@ function randomFutureDate(a){
 }
 
 function randomPhone(a){
+  console.log(a);
   if(a && a != ''){
+    console.log(Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000));
     return Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000);
   }
   return a;
@@ -458,8 +460,6 @@ async function getJobStatus(jobId){
 
   const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
   const response = await bulkrequest.getIngestJobInfo(jobId);
-  console.log(JSON.stringify(response));
-  console.log(JSON.parse(JSON.stringify(response)))
   return Promise.resolve(JSON.parse(JSON.stringify(response)));
 
 }
