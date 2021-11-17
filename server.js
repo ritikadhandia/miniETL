@@ -658,6 +658,9 @@ function transformData(type, a){
       case 'Clear':
           a = ''
           break;
+      case '#NA':
+          a = '#N/A';
+          break;
       case 'No Change':
           break;
       default:
