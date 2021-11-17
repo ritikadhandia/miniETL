@@ -42,13 +42,46 @@ app.listen(PORT, () => console.log(`Listening on ${ PORT }`));
  * Step 1 Web Server Flow - Get Code
  */
 app.get('/webServer', function (req,res){  
-  var sfdcURL = process.env.loginurl+'/services/oauth2/authorize' ;
   
-  var url = sfdcURL+'?client_id='+ consumer_key+
-        '&redirect_uri='+ callback_url+
-        '&response_type=code';
+  /*
+  console.log('login process');
 
-  res.redirect(url);
+  console.log(process.env.loginhost);
+  console.log(process.env.loginurl);
+
+  if(!process.env.loginhost || !process.env.loginurl){
+    console.log('incorrect setup');
+    res.status(200).json({ status: 'error', error : 'Incorrect Env Setup. Please add Loginhost and LoginURL' });
+  }
+  // First Try Soap Based Login, if process variables are present
+
+
+  console.log(process.env.username);
+  console.log(process.env.password);
+  if(process.env.username && process.env.password){
+    console.log('soap login');
+    soapLogin()
+    .then(function(data){
+      console.log('SOAP Login Successful');
+      sessionResponse = {
+        access_token : data.
+      }
+      
+    })
+    .catch(function(err){
+      res.status(200).json({ status: 'error', error : err });
+    })
+  }
+  else{
+
+    */
+    // If error, then Try OAuth Based Login
+    var sfdcURL = process.env.loginurl+'/services/oauth2/authorize' ;
+    var url = sfdcURL+'?client_id='+ consumer_key+
+          '&redirect_uri='+ callback_url+
+          '&response_type=code';
+    res.redirect(url);
+  
 
 });
 
@@ -63,6 +96,7 @@ app.get('/oauthcallback' ,  function(req,fnres) {
   requestAccessToken(authCode)
   .then(function(response){
     // Save in persistent variable
+    console.log('OAuth Login Successful');
     sessionResponse = response;
     var headersData = {
       "headers":[],
@@ -663,6 +697,28 @@ async function loginProcess(){
   else {
       return Promise.reject('Incorrect Credentials');  
   }
+}
+
+function soapLogin(){
+
+  return new Promise(async function(resolve, reject){
+
+      const conn = new jsforce.Connection({
+        loginUrl : process.env.loginurl
+      });
+      
+      await conn.login(process.env.username, process.env.password, function(err, userInfo){
+        if(err) { 
+          console.log(err);
+          reject(err); 
+        }
+        else{
+          resolve(conn);
+        }
+      });
+
+  });
+
 }
 
 
