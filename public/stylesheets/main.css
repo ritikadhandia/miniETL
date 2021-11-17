@@ -147,8 +147,8 @@
 
 .navPanel{
   background-color: var(--color-darkGrey);
-  height: 60px;
-  padding: 5px 10px;
+  min-height: 50px;
+  padding: 0.5% 3%;
   margin: 2px 0;
 }
 
@@ -201,6 +201,12 @@
 footer{
   margin: 5px;
 }
+
+hr{
+  height: 3px;
+  background-color: var(--color-darkGrey);
+}
+
 
 
 

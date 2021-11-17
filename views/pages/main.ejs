@@ -8,9 +8,11 @@
   <body>
 
     <div class="navPanel" style="background-color: var(--color-darkGrey);">
-      <div class="homeDiv">
-       
-      </div>
+    <div class="homeDiv">
+        <a href="/webServer" class="button primary">Login</a>
+         <div id="loggedInInfo" style="color:white">
+         </div>
+    </div>
     </div>
 
      <form method="post" action="/" enctype="multipart/form-data" id="csvUploadForm">
@@ -46,26 +48,10 @@
                   </div>
                 </p>
                 <footer class="is-right">
-                  <button type="submit" class="button primary" id="extractBtn" onclick="return checkQuery()">Extract</button>
+                  <button type="submit" class="button primary" id="extractBtn" onclick="return checkQuery()" disabled>Extract</button>
                 </footer>
               </div>
-              <div class="mainCard card">
-                <header>
-                  <div class="row">
-                    <div class="col-10">
-                      <h4>Extract Failed Results for Job</h4>
-                      Enter Job Id
-                      <input type="text" id="jobIdInput"/>
-                    </div>
-                    <div class="col-2 text-right">
-                      <img src="https://icongr.am/entypo/warning.svg?size=128&color=d43939" class="imgIcon"/>
-                    </div>
-                  </div>
-                </header>
-                <footer class="is-right">
-                  <button type="button" class="button primary" id="resultBtn" onclick="return fetchFailedResults();">Fetch</button>
-                </footer>
-              </div>
+              
           </div>
           <div class="col-5">
               <div class="mainCard card">
@@ -113,7 +99,7 @@
                  </div>
                 </p>
                 <footer class="is-right" id="downloadFooter">
-                 <!-- <a href="/downloadFile" class="button primary">Download</a>-->
+                 
                 </footer>
                 <p>
                   <div id="uploadedJobDiv">
@@ -121,9 +107,9 @@
                   <br/>
                   <br/>
                   Operation Type
-                  <select name="operationType" id="operationType" onchange="validateSelection()">
-                    <option name="insert" value="insert">insert</option>
+                  <select name="operationType" id="operationType" onchange="validateSelection()" disabled>
                     <option name="update" value="update">update</option>
+                    <option name="insert" value="insert">insert</option>
                     <option name="upsert" value="upsert">upsert</option>
                     <option name="delete" value="delete">delete</option>
                     <option name="harddelete" value="hardDelete">harddelete</option>
@@ -140,6 +126,62 @@
                   <button type="button" class="button primary" id="uploadBtn" onclick="uploadSF()" disabled>Upload to Salesforce</button>
                 </footer>
               </div>
+              
+          </div>
+        </div>
+        <hr/>
+        <div class="row">
+            <div class="col-4">
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Extract Failed Results for Job</h4>
+                      Enter Job Id
+                      <input type="text" id="jobIdInput"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/warning.svg?size=128&color=d43939" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="resultBtn" onclick="return fetchFailedResults();" disabled>Fetch</button>
+                </footer>
+                 <footer>
+                  <p>
+                    <div id="failedResultDiv">
+                    </div>
+                  </p>
+                </footer>
+              </div>
+            </div>
+            <div class="col-5">
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Extract Successful Results for Job</h4>
+                      Enter Job Id
+                      <input type="text" id="jobIdInputSuccess"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/check.svg?size=128&color=14854f" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="successResultBtn" onclick="return fetchSuccessfulResults();" disabled>Fetch</button>
+                </footer>
+                <footer>
+                  <p>
+                    <div id="successResultDiv">
+                    </div>
+                  </p>
+                </footer>
+              </div>
+            </div>
+            <div class="col-3">
               <div class="mainCard card">
                 <header>
                   <div class="row">
@@ -149,12 +191,12 @@
                       <input type="text" id="jobIdIputResults"/>
                     </div>
                     <div class="col-2 text-right">
-                      <img src="https://icongr.am/entypo/progress-two.svg?size=128&color=14854f" class="imgIcon"/>
+                      <img src="https://icongr.am/entypo/progress-two.svg?size=128&color=FF6600" class="imgIcon"/>
                     </div>
                   </div>
                 </header>
                 <footer class="is-right">
-                  <button type="button" class="button primary" id="statusBtn" onclick="return fetchJobStatus();">Get Status</button>
+                  <button type="button" class="button primary" id="statusBtn" onclick="return fetchJobStatus();" disabled>Get Status</button>
                 </footer>
                 <footer>
                   <p>
@@ -163,17 +205,14 @@
                   </p>
                 </footer>
               </div>
+            </div>
           </div>
-        </div>
       </div>
     </form>
-
     <div id="overlay">
       <div class="loader"></div>
     </div>
-
 </body>
-
 
 <script>
 
@@ -193,6 +232,17 @@
 
     });
 
+    if(headerDataJSON.instanceInfo){
+      document.getElementById("loggedInInfo").innerHTML = "Logged into the Org " + headerDataJSON.instanceInfo;
+      // Enable Extract Button
+      document.getElementById("extractBtn").disabled = false;
+      document.getElementById("statusBtn").disabled = false;
+      document.getElementById("resultBtn").disabled = false;
+     // document.getElementById("successResultBtn").disabled = false;
+
+
+    }
+
     if(headerDataJSON.headers && headerDataJSON.headers.length > 0){
 
       headersDiv = document.getElementById("csvAnalysis");
@@ -203,15 +253,6 @@
       rowsDiv.className = "titleDiv";
 
       headersDiv.appendChild(rowsDiv);
-
-
-/*
-      var titleDiv = document.createElement("div");
-      titleDiv.innerHTML = "Select the Transformation mode for each column. Only non blank values are jumbled up or randomized. Future and past are with respect to the existing values in date fields";
-      titleDiv.className = "titleDiv";
-
-      headersDiv.appendChild(titleDiv);
-*/
 
       headerDataJSON.headers.forEach(function(header, index){
 
@@ -283,8 +324,7 @@
               else{
                 alert('Error'+ jsonResponse.error);
               }
-              // Provide Download Link
-              //pollJobStatus(jobId)
+              
             }
         }
         xhttp.send(JSON.stringify({ jobId: jobId }));        
@@ -308,7 +348,7 @@
             if (this.readyState == 4 && this.status == 200) {
               
               console.log(this.response);
-              footerDiv = document.getElementById("downloadFooter");
+              footerDiv = document.getElementById("failedResultDiv");
               removeAllChildren(footerDiv);
 
               var linkDwn = document.createElement("a");
@@ -319,7 +359,7 @@
 
               footerDiv.appendChild(linkDwn);
 
-              document.getElementById("fileDownload").innerHTML = "The Failed Results File is now available for Download.";
+              //document.getElementById("fileDownload").innerHTML = "The Failed Results File is now available for Download.";
               off();
               // Provide Download Link
               //pollJobStatus(jobId)

@@ -15,14 +15,19 @@ const characters  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456
 const pollFreqency = process.env.pollfrequency || 10000;
 const PORT = process.env.PORT || 5000
 
+var consumer_key = '3MVG9d8..z.hDcPI89tOplGirN9Ae17MVEa5ZpkY_yALFchiG9UPuYujA3A.GTA7h4sZFKtfLfIbJA8bXhmuD'
+var consumer_secret = '8A324DFF62E0583F21097B1BFABB7D160C573D059AFF04D40053F43A82E938A9';
+var callback_url = 'http://localhost:5000/oauthcallback';
+//var sessionResponse;
+
 const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
 
 // Global variables to be used between calls
 var csvFilePath;
 var csvString;
-var bulkconnect;
 var objectName;
+var sessionResponse;
 
 var app = express();
 app.set('view engine', 'ejs');
@@ -32,14 +37,60 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.listen(PORT, () => console.log(`Listening on ${ PORT }`));
 
-// Base Core Function
-// Fetch Inventory and Menu for Machine Id
+
+/**
+ * Step 1 Web Server Flow - Get Code
+ */
+app.get('/webServer', function (req,res){  
+  var sfdcURL = process.env.loginurl+'/services/oauth2/authorize' ;
+  
+  var url = sfdcURL+'?client_id='+ consumer_key+
+        '&redirect_uri='+ callback_url+
+        '&response_type=code';
+
+  res.redirect(url);
+
+});
+
+/**
+ * Step 2 Web Server Flow - Get Access Token
+*/
+app.get('/oauthcallback' ,  function(req,fnres) {
+    
+  
+  var authCode = req.query.code;
+
+  requestAccessToken(authCode)
+  .then(function(response){
+    // Save in persistent variable
+    sessionResponse = response;
+    var headersData = {
+      "headers":[],
+      "instanceInfo":response.instance_url
+    }
+    fnres.render('pages/main', {
+      headerData: JSON.stringify(headersData)
+    });
+  })
+  .catch(function (error){
+    fnres.status(200).json({ status: 'error', error : error });
+    console.log(error);
+  })
+
+}); 
+
+
 app.get('/', function(req, resp){
     
     //testFailedResults();
     var headersData = {
       "headers":[]
     }
+
+    if(sessionResponse){
+      headersData.instanceInfo = sessionResponse.instance_url;
+    }
+
     resp.render('pages/main', {
       headerData: JSON.stringify(headersData)
     });
@@ -59,11 +110,7 @@ app.get('/downloadFile', (req, res) => {
 app.get('/downloadFailedFile', (req, res) => {
 
   res.download(failedResultsFile, 'failedResults.csv', function(err){
-      /*
-      fs.unlink(outputFile, function(err){
-        console.log('File Removed');
-      });
-      */
+
   });
 
 });
@@ -71,7 +118,7 @@ app.get('/downloadFailedFile', (req, res) => {
 app.post('/fetchJobStatus', function(req, res){
 
   var jobId = req.body.jobId;
-  loginProcess()
+  checkSessionValidaity()
   .then(function(){
     console.log('login finished');
     return getJobStatus(jobId);
@@ -102,7 +149,7 @@ app.post('/fetchFailedResults', function(req, res){
       return row;
   });
 
-  loginProcess()
+  checkSessionValidaity()
   .then(function(){
     console.log('login finished');
     return getFailedResults(jobId);
@@ -125,9 +172,8 @@ app.post('/uploadSF', function(req, res){
   var opType = req.body.operationType;
   var extField = req.body.externalIdField;
 
-  loginProcess()
+  checkSessionValidaity()
   .then(function(){
-    console.log('login finished');
     return submitBulkUploadJob(opType, extField)
   })
   .then(function(jobId){
@@ -178,6 +224,143 @@ app.post('/transformFile', function(req, res){
   }
 
 });
+
+
+app.post('/', function(req, res){
+
+  console.log('Data Ex started');
+ 
+  var form = new formidable.IncomingForm(); 
+  form.parse(req, function (err, fields, files) {
+
+    objectName = fields.objectName;
+
+    if(files.csvFile.name != ''){
+      csvFilePath = files.csvFile.path;
+      processCSVFileHeader(csvFilePath)
+      .then(function(data){
+        
+        var respData = data;
+        if(sessionResponse){
+          respData.instanceInfo = sessionResponse.instance_url;
+        }
+
+        res.render('pages/main', {
+          headerData: JSON.stringify(respData)
+        });
+
+      })
+    }
+
+    else if(fields.queryText != ''){
+      
+      checkSessionValidaity()
+      .then(function(){
+        return submitBulkQueryJob(fields.queryText)
+      })
+      .then(function(jobId){
+        console.log('bulk query job submitted');
+        return bulkStatusRecursive(jobId);
+      })
+      .then(function(data){
+        console.log('bulk query job finished');
+        return processCSVStringHeader(data);
+      })
+      .then(function(data){
+
+        var respData = data;
+        if(sessionResponse){
+          respData.instanceInfo = sessionResponse.instance_url;
+        }
+
+        res.render('pages/main', {
+          headerData: JSON.stringify(respData)
+        });
+      })
+      .catch(function(err){
+        res.status(200).json({ status: 'error', error : err });
+      })
+    }
+
+  });
+
+});
+
+function checkSessionValidaity(){
+  return new Promise(function(resolve, reject) {
+
+    if(sessionResponse){
+
+      // Check if Access Token still Valid
+
+      // Else Exchange Refresh Token for new Access Token
+      resolve();
+
+    }
+    else{
+      reject('Invalid Session. Please Login');
+    }
+
+  });
+}
+
+
+function httpRequest(post_options,post_data ) {
+    return new Promise(function(resolve, reject) {
+        
+      var post_req = https.request(post_options, function(res) {
+            var respBody = '';
+            res.setEncoding('utf8');
+            res.on('data', function (respData) {
+                respBody += respData;
+            });
+            res.on('end', function(){
+                var response = JSON.parse(respBody);
+                if(!response.error){
+                  resolve(response);    
+                }
+                else{
+                  var errorMessage = response.error_description;
+                  reject(errorMessage);
+                }
+            });
+            res.on('error', function(error){
+                console.log('Error: ' + error);
+                reject(error);
+            });
+        });
+
+        post_req.on('error', function(error){
+          console.log('Error: ' + error);
+          reject(error);
+      });
+    // post the data
+    post_req.write(post_data);
+    post_req.end();
+    });
+}
+
+
+function requestAccessToken(authCode){
+
+  console.log(authCode);
+  var post_options = {
+          method:'POST',
+          headers: {
+            'Content-Type': 'application/json',
+             'Content-Type':'application/x-www-form-urlencoded'
+          },
+          host: process.env.loginhost,
+          path:'/services/oauth2/token'
+        }
+
+  var post_data = 'client_id='+ consumer_key
+            + '&redirect_uri='+ callback_url
+            + '&grant_type=authorization_code'
+            + '&code='+ authCode;
+
+  return httpRequest(post_options, post_data);
+}
 
 function transformData(type, a){
 
@@ -256,7 +439,6 @@ function randomFutureDate(a){
 }
 
 function randomPhone(a){
-  console.log(a);
   if(a && a != ''){
     console.log(Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000));
     return Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000);
@@ -300,55 +482,7 @@ function isEmail(a){
 }
 
 
-app.post('/', function(req, res){
 
-  console.log('Data Ex started');
-  var form = new formidable.IncomingForm();
-  
-  form.parse(req, function (err, fields, files) {
-
-    objectName = fields.objectName;
-
-    if(files.csvFile.name != ''){
-      csvFilePath = files.csvFile.path;
-      processCSVFileHeader(csvFilePath)
-      .then(function(data){
-        
-        res.render('pages/main', {
-          headerData: JSON.stringify(data)
-        });
-
-      })
-    }
-
-    else if(fields.queryText != ''){
-      
-      loginProcess()
-      .then(function(){
-        console.log('login finished');
-        return submitBulkQueryJob(fields.queryText)
-      })
-      .then(function(jobId){
-        console.log('bulk query job submitted');
-        return bulkStatusRecursive(jobId);
-      })
-      .then(function(data){
-        console.log('bulk query job finished');
-        return processCSVStringHeader(data);
-      })
-      .then(function(data){
-        res.render('pages/main', {
-          headerData: JSON.stringify(data)
-        });
-      })
-      .catch(function(err){
-        res.status(200).json({ status: 'error', error : err });
-      })
-    }
-
-  });
-
-});
 
 function processCSVFileHeader(filePath){
 
@@ -405,7 +539,15 @@ function processCSVStringHeader(data){
 
 async function submitBulkQueryJob(queryText){
 
+  console.log('inside submitBulkQueryJob');
   try {
+
+        let bulkconnect = {
+              'accessToken': sessionResponse.access_token,
+              'apiVersion': '51.0',
+              'instanceUrl': sessionResponse.instance_url
+        };
+
         const bulkapi2 = new sfbulk.BulkAPI2(bulkconnect);
         const queryInput = {
             'query': queryText,
@@ -415,6 +557,7 @@ async function submitBulkQueryJob(queryText){
         return Promise.resolve(response.id);
 
     } catch (ex) {
+        console.log(ex);
         return Promise.reject(ex);       
     }
 }
@@ -422,7 +565,13 @@ async function submitBulkQueryJob(queryText){
 async function submitBulkUploadJob(operationType, extField){
   try {
       console.log('bulk upload started');
-      // create a new BulkAPI2 class
+      
+      let bulkconnect = {
+          'accessToken': sessionResponse.access_token,
+          'apiVersion': '51.0',
+          'instanceUrl': sessionResponse.instance_url
+      };
+
       const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
       // create a bulk update job
       const jobRequest = {
@@ -458,6 +607,12 @@ async function submitBulkUploadJob(operationType, extField){
 
 async function getJobStatus(jobId){
 
+  let bulkconnect = {
+          'accessToken': sessionResponse.access_token,
+          'apiVersion': '51.0',
+          'instanceUrl': sessionResponse.instance_url
+  };
+
   const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
   const response = await bulkrequest.getIngestJobInfo(jobId);
   return Promise.resolve(JSON.parse(JSON.stringify(response)));
@@ -466,6 +621,12 @@ async function getJobStatus(jobId){
 
 
 async function getFailedResults(jobId){
+
+  let bulkconnect = {
+          'accessToken': sessionResponse.access_token,
+          'apiVersion': '51.0',
+          'instanceUrl': sessionResponse.instance_url
+  };
 
   const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
   const response = await bulkrequest.getResults(jobId, 'failedResults');
@@ -476,17 +637,28 @@ async function getFailedResults(jobId){
 async function loginProcess(){
 
   console.log('login process started');
-  if (process.env.username && process.env.password) {
+  if(bulkconnect){
+    console.log('Login Through oAuth Completed');
+    return Promise.resolve()
+  }
+  else if (process.env.username && process.env.password) {
       const conn = new jsforce.Connection({
         loginUrl : process.env.loginurl
       });
-      await conn.login(process.env.username, process.env.password);
-      bulkconnect = {
-            'accessToken': conn.accessToken,
-            'apiVersion': '51.0',
-            'instanceUrl': conn.instanceUrl
-      };
-      return Promise.resolve();
+      await conn.login(process.env.username, process.env.password, function(err, userInfo){
+        if (err) { 
+          console.log(err);
+          return Promise.reject(err); 
+        }
+        else{
+          bulkconnect = {
+              'accessToken': conn.accessToken,
+              'apiVersion': '51.0',
+              'instanceUrl': conn.instanceUrl
+          };
+          return Promise.resolve();
+        }
+      });
   }
   else {
       return Promise.reject('Incorrect Credentials');  
@@ -503,7 +675,12 @@ function bulkStatusRecursive( jobId ) { // example "recursive" asynchronous func
 
     console.log('polling SF bulk status');
     
-    async function decide( jobId) {
+    async function decide( jobId) {        
+        let bulkconnect = {
+              'accessToken': sessionResponse.access_token,
+              'apiVersion': '51.0',
+              'instanceUrl': sessionResponse.instance_url
+        };
 
         const bulkapi2 = new sfbulk.BulkAPI2(bulkconnect);
         const response = await bulkapi2.getBulkQueryJobInfo(jobId);
