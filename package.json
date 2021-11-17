@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "description": "A Mini ETL for Salesforce",
   "engines": {
-    "node": "10.x"
+    "node": "16.x"
   },
   "main": "app.js",
   "scripts": {
