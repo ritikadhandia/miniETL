@@ -8,11 +8,11 @@
   <body>
 
     <div class="navPanel" style="background-color: var(--color-darkGrey);">
-    <div class="homeDiv">
-        <a href="/webServer" class="button primary">Login</a>
-         <div id="loggedInInfo" style="color:white">
-         </div>
-    </div>
+      <div class="homeDiv">
+            <a href="/webServer" class="button primary">Login</a>
+           <div id="loggedInInfo" style="color:white">
+           </div>
+      </div>
     </div>
 
      <form method="post" action="/" enctype="multipart/form-data" id="csvUploadForm">
@@ -175,7 +175,7 @@
                 </footer>
                 <footer>
                   <p>
-                    <div id="successResultDiv">
+                    <div id="successfulResultDiv">
                     </div>
                   </p>
                 </footer>
@@ -372,14 +372,44 @@
       }
     }
 
+    function fetchSuccessfulResults(){
+      let jobId = document.getElementById("jobIdInputSuccess").value;
+      if(jobId != ""){
+        on();
+        var xhttp = new XMLHttpRequest();
+        xhttp.open("POST", "/fetchSuccessfulResults", true);
+        xhttp.setRequestHeader('Content-Type', 'application/json');
+        xhttp.onreadystatechange = function() {
+
+            if (this.readyState == 4 && this.status == 200) {
+              
+              console.log(this.response);
+              footerDiv = document.getElementById("successfulResultDiv");
+              removeAllChildren(footerDiv);
+
+              var linkDwn = document.createElement("a");
+              linkDwn.innerHTML = "Download Successful Results";
+              linkDwn.href = "/downloadSuccessfulFile";
+              linkDwn.id = "downloadSuccessfulBtn";
+              linkDwn.className = "button primary";
+              footerDiv.appendChild(linkDwn);
+              off();
+            }
+        }
+        xhttp.send(JSON.stringify({ jobId: jobId }));        
+      }
+      else{
+        alert('Please enter a Valid Job Id');
+        return false;
+      }
+    }
+
 
     function uploadSF(){
 
       let opType = document.getElementById("operationType").value;
       var extField = document.getElementById("extIdField").value;
      
-      console.log(extField);
-      console.log(opType);
       if(opType == 'upsert' && (!extField || extField == '')){
         alert('Please add an External Id Field for Upsert');
         return false;

@@ -23,6 +23,7 @@ var callback_url = 'http://localhost:5000/oauthcallback';
 
 const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
+const successfulResultsFile = __dirname + '/successfulResults.csv';
 
 // Global variables to be used between calls
 var csvFilePath;
@@ -110,11 +111,19 @@ app.get('/downloadFile', (req, res) => {
 app.get('/downloadFailedFile', (req, res) => {
 
   res.download(failedResultsFile, 'failedResults.csv', function(err){
-      /*
-      fs.unlink(outputFile, function(err){
-        console.log('File Removed');
+      fs.unlink(failedResultsFile, function(err){
+        console.log('File Removed from server');
       });
-      */
+  });
+
+});
+
+app.get('/downloadSuccessfulFile', (req, res) => {
+
+  res.download(successfulResultsFile, 'successfulResults.csv', function(err){
+      fs.unlink(successfulResultsFile, function(err){
+        console.log('File Removed from server');
+      });
   });
 
 });
@@ -128,7 +137,6 @@ app.post('/fetchJobStatus', function(req, res){
     return getJobStatus(jobId);
   })
   .then(function(response){
-    console.log(response);
     res.status(200).json({ status: 'success', response : response });
   })
   .catch(function (error) {
@@ -156,6 +164,38 @@ app.post('/fetchFailedResults', function(req, res){
   .then(function(){
     console.log('login finished');
     return getFailedResults(jobId);
+  })
+  .then(function(responseString){
+    csv.parseString(responseString, { headers: true })
+    .pipe(transform)
+    .pipe(writeStream);
+      
+  })
+  .catch(function (error) {
+    console.log(error);
+    res.status(200).json({ status: 'error', error : error });
+  });
+
+});
+
+app.post('/fetchSuccessfulResults', function(req, res){
+
+  var jobId = req.body.jobId;
+
+  const writeStream = fs.createWriteStream(successfulResultsFile);
+  writeStream.on("finish", function(){
+    res.status(200).json({ a: 1 });
+  });
+
+  const transform = csv.format({ headers: true })
+    .transform((row) => {
+      return row;
+  });
+
+  checkSessionValidaity()
+  .then(function(){
+    console.log('login finished');
+    return getSuccessfulResults(jobId);
   })
   .then(function(responseString){
     csv.parseString(responseString, { headers: true })
@@ -346,7 +386,6 @@ function httpRequest(post_options,post_data ) {
 
 function requestAccessToken(authCode){
 
-  console.log(authCode);
   var post_options = {
           method:'POST',
           headers: {
@@ -364,127 +403,6 @@ function requestAccessToken(authCode){
 
   return httpRequest(post_options, post_data);
 }
-
-function transformData(type, a){
-
-    switch (type){
-      case 'Jumble Up Text':
-          a = scramble(a);
-          break;
-      case 'Jumble Up Email':
-          a = scrambleEmail(a);
-          break;
-      case 'Random Phone':
-          a = randomPhone(a);
-          break;
-      case 'Random Past Date':
-          a = randomPastDate(a);
-          break;
-      case 'Random Future Date':
-          a = randomFutureDate(a);
-          break;
-      case 'Random Past Date Time':
-          a = randomPastDateTime(a);
-          break;
-      case 'Clear':
-          a = ''
-          break;
-      case 'No Change':
-          break;
-      default:
-    }
-    return a;
-}
-
-function getRandomDate(start, end) {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-}
-
-function randomPastDateTime(a){
-
-  if(a && a != ''){
-    const d = new Date(a);
-    if(d instanceof Date && !isNaN(d)){
-      d.setDate(d.getDate()-10);
-      var randomDate = getRandomDate(new Date(1950, 0, 1), d);
-      a = randomDate.toISOString();
-    }
-  }
-  return a;
-  
-}
-
-function randomPastDate(a){
-  if(a && a != ''){
-    const d = new Date(a);
-    if(d instanceof Date && !isNaN(d)){
-      d.setDate(d.getDate()-10);
-      var randomDate = getRandomDate(new Date(1950, 0, 1), d);
-      a = randomDate.toISOString().split('T')[0];
-    }
-  }
-  return a;
-
-}
-
-function randomFutureDate(a){
-
-    if(a && a != ''){
-      const d = new Date(a);
-      if(d instanceof Date && !isNaN(d)){
-        d.setDate(d.getDate()+10);
-        var randomDate = getRandomDate(d, new Date(2050, 0, 1));
-        a = randomDate.toISOString().split('T')[0];
-      }
-    }
-    return a;
-
-}
-
-function randomPhone(a){
-  if(a && a != ''){
-    console.log(Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000));
-    return Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000);
-  }
-  return a;
-}
-
-function randomText(cnt){
-
-    var charactersLength = characters.length;
-    var result = '';
-    for ( var i = 0; i < cnt; i++ ) {
-      result += characters.charAt(Math.floor(Math.random() * charactersLength));
-    }
-    return result;
-}
-
-function scramble(a){
-  a=a.split("");
-  for(var b=a.length-1;0<b;b--){
-      var c=Math.floor(Math.random()*(b+1));
-      d=a[b];a[b]=a[c];a[c]=d
-  }
-  return a.join("")
-}
-
-function scrambleEmail(a){
-
-  if(isEmail(a)){
-    a=a.split("@");
-    a[0] = scramble(a[0]);
-    a = [...a[0], "@", a[1]];
-    return a.join("");
-  }
-  return a;
-}
-
-function isEmail(a){
-    var pattern = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/; 
-    return a.match(pattern);    
-}
-
-
 
 
 function processCSVFileHeader(filePath){
@@ -622,6 +540,20 @@ async function getJobStatus(jobId){
 
 }
 
+async function getSuccessfulResults(jobId){
+
+  let bulkconnect = {
+          'accessToken': sessionResponse.access_token,
+          'apiVersion': '51.0',
+          'instanceUrl': sessionResponse.instance_url
+  };
+
+  const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
+  const response = await bulkrequest.getResults(jobId, 'successfulResults');
+  return Promise.resolve(response);
+
+}
+
 
 async function getFailedResults(jobId){
 
@@ -723,5 +655,128 @@ function bulkStatusRecursive( jobId ) { // example "recursive" asynchronous func
 
     return asyncThing(jobId).then(decide);
 }
+
+
+// Utility Functions
+
+
+function transformData(type, a){
+
+    switch (type){
+      case 'Jumble Up Text':
+          a = scramble(a);
+          break;
+      case 'Jumble Up Email':
+          a = scrambleEmail(a);
+          break;
+      case 'Random Phone':
+          a = randomPhone(a);
+          break;
+      case 'Random Past Date':
+          a = randomPastDate(a);
+          break;
+      case 'Random Future Date':
+          a = randomFutureDate(a);
+          break;
+      case 'Random Past Date Time':
+          a = randomPastDateTime(a);
+          break;
+      case 'Clear':
+          a = ''
+          break;
+      case 'No Change':
+          break;
+      default:
+    }
+    return a;
+}
+
+function getRandomDate(start, end) {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+}
+
+function randomPastDateTime(a){
+
+  if(a && a != ''){
+    const d = new Date(a);
+    if(d instanceof Date && !isNaN(d)){
+      d.setDate(d.getDate()-10);
+      var randomDate = getRandomDate(new Date(1950, 0, 1), d);
+      a = randomDate.toISOString();
+    }
+  }
+  return a;
+  
+}
+
+function randomPastDate(a){
+  if(a && a != ''){
+    const d = new Date(a);
+    if(d instanceof Date && !isNaN(d)){
+      d.setDate(d.getDate()-10);
+      var randomDate = getRandomDate(new Date(1950, 0, 1), d);
+      a = randomDate.toISOString().split('T')[0];
+    }
+  }
+  return a;
+
+}
+
+function randomFutureDate(a){
+
+    if(a && a != ''){
+      const d = new Date(a);
+      if(d instanceof Date && !isNaN(d)){
+        d.setDate(d.getDate()+10);
+        var randomDate = getRandomDate(d, new Date(2050, 0, 1));
+        a = randomDate.toISOString().split('T')[0];
+      }
+    }
+    return a;
+
+}
+
+function randomPhone(a){
+  if(a && a != ''){
+    return Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(899)+100)+"-"+Math.floor(Math.random()*(8999)+1000);
+  }
+  return a;
+}
+
+function randomText(cnt){
+
+    var charactersLength = characters.length;
+    var result = '';
+    for ( var i = 0; i < cnt; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+}
+
+function scramble(a){
+  a=a.split("");
+  for(var b=a.length-1;0<b;b--){
+      var c=Math.floor(Math.random()*(b+1));
+      d=a[b];a[b]=a[c];a[c]=d
+  }
+  return a.join("")
+}
+
+function scrambleEmail(a){
+
+  if(isEmail(a)){
+    a=a.split("@");
+    a[0] = scramble(a[0]);
+    a = [...a[0], "@", a[1]];
+    return a.join("");
+  }
+  return a;
+}
+
+function isEmail(a){
+    var pattern = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/; 
+    return a.match(pattern);    
+}
+
 
 
