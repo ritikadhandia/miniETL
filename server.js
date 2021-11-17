@@ -8,6 +8,7 @@ var fs = require('fs');
 const util = require('util');
 const csv = require('fast-csv');
 const dotenv = require('dotenv');
+
 dotenv.config();
 const jsforce = require('jsforce');
 const sfbulk = require('node-sf-bulk2');
@@ -43,46 +44,13 @@ app.listen(PORT, () => console.log(`Listening on ${ PORT }`));
  */
 app.get('/webServer', function (req,res){  
   
-  /*
-  console.log('login process');
-
-  console.log(process.env.loginhost);
-  console.log(process.env.loginurl);
-
-  if(!process.env.loginhost || !process.env.loginurl){
-    console.log('incorrect setup');
-    res.status(200).json({ status: 'error', error : 'Incorrect Env Setup. Please add Loginhost and LoginURL' });
-  }
-  // First Try Soap Based Login, if process variables are present
-
-
-  console.log(process.env.username);
-  console.log(process.env.password);
-  if(process.env.username && process.env.password){
-    console.log('soap login');
-    soapLogin()
-    .then(function(data){
-      console.log('SOAP Login Successful');
-      sessionResponse = {
-        access_token : data.
-      }
-      
-    })
-    .catch(function(err){
-      res.status(200).json({ status: 'error', error : err });
-    })
-  }
-  else{
-
-    */
-    // If error, then Try OAuth Based Login
-    var sfdcURL = process.env.loginurl+'/services/oauth2/authorize' ;
-    var url = sfdcURL+'?client_id='+ consumer_key+
-          '&redirect_uri='+ callback_url+
-          '&response_type=code';
-    res.redirect(url);
+  // If error, then Try OAuth Based Login
+  var sfdcURL = process.env.loginurl+'/services/oauth2/authorize' ;
+  var url = sfdcURL+'?client_id='+ consumer_key+
+        '&redirect_uri='+ callback_url+
+        '&response_type=code';
+  res.redirect(url);
   
-
 });
 
 /**
@@ -110,13 +78,11 @@ app.get('/oauthcallback' ,  function(req,fnres) {
     fnres.status(200).json({ status: 'error', error : error });
     console.log(error);
   })
-
 }); 
 
 
 app.get('/', function(req, resp){
     
-    //testFailedResults();
     var headersData = {
       "headers":[]
     }
@@ -144,7 +110,11 @@ app.get('/downloadFile', (req, res) => {
 app.get('/downloadFailedFile', (req, res) => {
 
   res.download(failedResultsFile, 'failedResults.csv', function(err){
-
+      /*
+      fs.unlink(outputFile, function(err){
+        console.log('File Removed');
+      });
+      */
   });
 
 });
@@ -165,7 +135,6 @@ app.post('/fetchJobStatus', function(req, res){
     console.log(error);
     res.status(200).json({ status: 'error', error : error });
   });
-
 
 });
 
@@ -700,7 +669,7 @@ async function loginProcess(){
 }
 
 function soapLogin(){
-
+  
   return new Promise(async function(resolve, reject){
 
       const conn = new jsforce.Connection({
@@ -716,15 +685,13 @@ function soapLogin(){
           resolve(conn);
         }
       });
-
   });
-
 }
 
 
 function asyncThing( asyncParam) { // example operation
-  const promiseDelay = (data,msec) => new Promise(res => setTimeout(res,msec,data));
-  return promiseDelay( asyncParam, pollFreqency); //resolve with argument in 10 second.
+    const promiseDelay = (data,msec) => new Promise(res => setTimeout(res,msec,data));
+    return promiseDelay( asyncParam, pollFreqency); //resolve with argument in 10 second.
 }
 
 function bulkStatusRecursive( jobId ) { // example "recursive" asynchronous function
