@@ -45,7 +45,6 @@ app.listen(PORT, () => console.log(`Listening on ${ PORT }`));
  */
 app.get('/webServer', function (req,res){  
   
-  // If error, then Try OAuth Based Login
   var sfdcURL = process.env.loginurl+'/services/oauth2/authorize' ;
   var url = sfdcURL+'?client_id='+ consumer_key+
         '&redirect_uri='+ callback_url+

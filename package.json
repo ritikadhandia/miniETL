@@ -1,7 +1,7 @@
 {
-  "name": "node-js-getting-started",
+  "name": "mini-etl",
   "version": "0.3.0",
-  "description": "A sample Node.js app using Express 4",
+  "description": "A Mini ETL for Salesforce",
   "engines": {
     "node": "10.x"
   },
