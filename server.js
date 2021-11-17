@@ -10,7 +10,7 @@ const csv = require('fast-csv');
 const dotenv = require('dotenv');
 
 dotenv.config();
-const jsforce = require('jsforce');
+//const jsforce = require('jsforce');
 const sfbulk = require('node-sf-bulk2');
 const characters  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const pollFreqency = process.env.pollfrequency || 10000;
@@ -570,12 +570,8 @@ async function getFailedResults(jobId){
 
 async function loginProcess(){
 
-  console.log('login process started');
-  if(bulkconnect){
-    console.log('Login Through oAuth Completed');
-    return Promise.resolve()
-  }
-  else if (process.env.username && process.env.password) {
+  /*
+  if (process.env.username && process.env.password) {
       const conn = new jsforce.Connection({
         loginUrl : process.env.loginurl
       });
@@ -597,28 +593,8 @@ async function loginProcess(){
   else {
       return Promise.reject('Incorrect Credentials');  
   }
+  */
 }
-
-function soapLogin(){
-  
-  return new Promise(async function(resolve, reject){
-
-      const conn = new jsforce.Connection({
-        loginUrl : process.env.loginurl
-      });
-      
-      await conn.login(process.env.username, process.env.password, function(err, userInfo){
-        if(err) { 
-          console.log(err);
-          reject(err); 
-        }
-        else{
-          resolve(conn);
-        }
-      });
-  });
-}
-
 
 function asyncThing( asyncParam) { // example operation
     const promiseDelay = (data,msec) => new Promise(res => setTimeout(res,msec,data));
@@ -628,7 +604,6 @@ function asyncThing( asyncParam) { // example operation
 function bulkStatusRecursive( jobId ) { // example "recursive" asynchronous function
 
     console.log('polling SF bulk status');
-    
     async function decide( jobId) {        
         let bulkconnect = {
               'accessToken': sessionResponse.access_token,
