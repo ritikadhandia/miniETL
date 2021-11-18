@@ -24,10 +24,11 @@ var callback_url = 'http://localhost:5000/oauthcallback';
 const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
 const successfulResultsFile = __dirname + '/successfulResults.csv';
+const queryResultsFile = __dirname + '/queryResults.csv';
+const outputFilePath = __dirname+'/testmergedoutput.csv';
 
 // Global variables to be used between calls
 var csvFilePath;
-var csvString;
 var objectName;
 var sessionResponse;
 
@@ -82,7 +83,7 @@ app.get('/oauthcallback' ,  function(req,fnres) {
 
 
 app.get('/', function(req, resp){
-    
+
     var headersData = {
       "headers":[]
     }
@@ -114,13 +115,21 @@ app.get('/downloadFailedFile', (req, res) => {
         console.log('File Removed from server');
       });
   });
-
 });
 
 app.get('/downloadSuccessfulFile', (req, res) => {
 
   res.download(successfulResultsFile, 'successfulResults.csv', function(err){
       fs.unlink(successfulResultsFile, function(err){
+        console.log('File Removed from server');
+      });
+  });
+});
+
+app.get('/downloadQueriedFile', (req, res) => {
+
+  res.download(queryResultsFile, 'queryResults.csv', function(err){
+      fs.unlink(queryResultsFile, function(err){
         console.log('File Removed from server');
       });
   });
@@ -142,7 +151,6 @@ app.post('/fetchJobStatus', function(req, res){
     console.log(error);
     res.status(200).json({ status: 'error', error : error });
   });
-
 });
 
 app.post('/fetchFailedResults', function(req, res){
@@ -209,6 +217,40 @@ app.post('/fetchSuccessfulResults', function(req, res){
 
 });
 
+app.post('/fetchQueryResults', function(req, res){
+
+  var jobId = req.body.jobId;
+
+  const writeStream = fs.createWriteStream(queryResultsFile);
+  writeStream.on("finish", function(){
+    res.status(200).json({ a: 1 });
+  });
+
+  const transform = csv.format({ headers: true })
+    .transform((row) => {
+      return row;
+  });
+
+  checkSessionValidaity()
+  .then(function(){
+    console.log('login finished');
+    return getAllBulkQueryResult(jobId, queryResultsFile);
+  })
+  .then(function(responseString){
+    res.status(200).json({ a: 1 });
+  /*
+    csv.parseString(responseString, { headers: true })
+    .pipe(transform)
+    .pipe(writeStream);
+  */
+  })
+  .catch(function (error) {
+    console.log(error);
+    res.status(200).json({ status: 'error', error : error });
+  });
+
+});
+
 app.post('/uploadSF', function(req, res){
 
   var opType = req.body.operationType;
@@ -259,10 +301,17 @@ app.post('/transformFile', function(req, res){
       .pipe(transform)
       .pipe(writeStream);
     }
-    else if(csvString){
+    else {
+      const parse = csv.parse({ headers: true });
+      const stream = fs.createReadStream(outputFilePath)
+      .pipe(parse)
+      .pipe(transform)
+      .pipe(writeStream);
+      /*
       csv.parseString(csvString, { headers: true })
       .pipe(transform)
       .pipe(writeStream);
+      */
   }
 
 });
@@ -305,16 +354,10 @@ app.post('/', function(req, res){
         return bulkStatusRecursive(jobId);
       })
       .then(function(data){
-        console.log('bulk query job finished');
-        return processCSVStringHeader(data);
-      })
-      .then(function(data){
-
         var respData = data;
         if(sessionResponse){
           respData.instanceInfo = sessionResponse.instance_url;
         }
-
         res.render('pages/main', {
           headerData: JSON.stringify(respData)
         });
@@ -334,10 +377,8 @@ function checkSessionValidaity(){
     if(sessionResponse){
 
       // Check if Access Token still Valid
-
       // Else Exchange Refresh Token for new Access Token
       resolve();
-
     }
     else{
       reject('Invalid Session. Please Login');
@@ -554,6 +595,30 @@ async function getSuccessfulResults(jobId){
 }
 
 
+async function getAllBulkQueryResult(jobId, filePath){
+
+  console.log('all query');
+  let sforceLocator;
+  let bulkconnect = {
+      'accessToken': sessionResponse.access_token,
+      'apiVersion': '51.0',
+      'instanceUrl': sessionResponse.instance_url
+  };
+
+  const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
+  const csvStringArray = [];
+  do{
+      const response = await bulkrequest.getBulkQueryResults(jobId, sforceLocator);
+      csvStringArray.push(response.data);
+      sforceLocator = response.headers["sforce-locator"];
+      console.log('sforce locator : ' + sforceLocator);
+  }
+  while(sforceLocator && sforceLocator != null && sforceLocator != 'null' && sforceLocator != '');
+  return concatCSVAndWrite(csvStringArray, filePath);
+
+}
+
+
 async function getFailedResults(jobId){
 
   let bulkconnect = {
@@ -601,7 +666,7 @@ function asyncThing( asyncParam) { // example operation
     return promiseDelay( asyncParam, pollFreqency); //resolve with argument in 10 second.
 }
 
-function bulkStatusRecursive( jobId ) { // example "recursive" asynchronous function
+function bulkStatusRecursive( jobId ) {
 
     console.log('polling SF bulk status');
     async function decide( jobId) {        
@@ -618,9 +683,11 @@ function bulkStatusRecursive( jobId ) { // example "recursive" asynchronous func
             return bulkStatusRecursive(jobId);
         }
         else if(response.state == 'JobComplete'){
-            const result = await bulkapi2.getBulkQueryResults(jobId);
-            csvString = result.data;
-            return result.data;
+            // const result = await bulkapi2.getBulkQueryResults(jobId);
+            return getAllBulkQueryResult(jobId, outputFilePath);
+        }
+        else if(response.state == 'Aborted' || response.state == 'Failed'){
+            return response;
         }
     }
 
@@ -757,3 +824,45 @@ function isEmail(a){
 
 
 
+function concatCSVAndWrite(csvStringsArray, outputFilePath) {
+ 
+  const promises = csvStringsArray.map((csvString, index) => {
+    return new Promise((resolve) => {
+      const dataArray = [];
+      var headers = (index ==0)?true:false;
+      return csv
+          .parseString(csvString, {headers: headers})
+          .on('data', function(data) {
+            dataArray.push(data);
+          })
+          .on('end', function() {
+            resolve(dataArray);
+          });
+      });
+  });
+
+  return Promise.all(promises)
+      .then((results) => {
+
+        console.log('all prmises done');
+        const csvStream = csv.format({headers: true});
+        const writableStream = fs.createWriteStream(outputFilePath);
+
+        writableStream.on('finish', function() {
+        });
+
+        csvStream.pipe(writableStream);
+        
+        results.forEach((result, mainCsvIndex) => {
+          result.forEach((data, index) => {
+            if(mainCsvIndex == 0 || index !=0){
+              csvStream.write(data);
+            }
+          });
+        });
+        csvStream.end();
+        console.log('csv stream end');
+        return Promise.resolve({'headers' : Object.keys(results[0][0]) });
+
+      });
+}

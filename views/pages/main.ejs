@@ -130,6 +130,7 @@
           </div>
         </div>
         <hr/>
+        <h4>INGEST JOBS</h4>
         <div class="row">
             <div class="col-4">
               <div class="mainCard card">
@@ -207,6 +208,63 @@
               </div>
             </div>
           </div>
+          <hr/>
+          <h4>QUERY JOBS</h4>
+        <div class="row">
+            <div class="col-4">
+              
+            </div>
+            <div class="col-5">
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Extract Results for Query Job</h4>
+                      Enter Job Id
+                      <input type="text" id="jobIdInputQuery"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/check.svg?size=128&color=14854f" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="successQueryResultBtn" onclick="return fetchQueryResults();" disabled>Extract</button>
+                </footer>
+                <footer>
+                  <p>
+                    <div id="queryResultDiv">
+                    </div>
+                  </p>
+                </footer>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="mainCard card">
+                <header>
+                  <div class="row">
+                    <div class="col-10">
+                      <h4>Fetch Query Job Status</h4>
+                      Enter Job Id
+                      <input type="text" id="jobIdIputQueryResults"/>
+                    </div>
+                    <div class="col-2 text-right">
+                      <img src="https://icongr.am/entypo/progress-two.svg?size=128&color=FF6600" class="imgIcon"/>
+                    </div>
+                  </div>
+                </header>
+                <footer class="is-right">
+                  <button type="button" class="button primary" id="queryStatusBtn" onclick="return fetchQueryJobStatus();" disabled>Get Status</button>
+                </footer>
+                <footer>
+                  <p>
+                    <div id="jobStatusQueryResultDiv">
+                    </div>
+                  </p>
+                </footer>
+              </div>
+            </div>
+          </div>
       </div>
     </form>
     <div id="overlay">
@@ -220,7 +278,7 @@
     var headerData = <%- JSON.stringify(headerData) %>;
     var headerDataJSON = JSON.parse(headerData);
 
-    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Random Past Date', 'Random Future Date', 'Random Past Date Time','#NA (for Clearing)','Exclude']; 
+    var actions = ['No Change', 'Jumble Up Text', 'Jumble Up Email', 'Random Phone', 'Random Past Date', 'Random Future Date', 'Random Past Date Time','#NA','Exclude']; 
     
     var actionSelect = document.createElement('select');
     actions.forEach(function(item, index){
@@ -238,7 +296,9 @@
       document.getElementById("extractBtn").disabled = false;
       document.getElementById("statusBtn").disabled = false;
       document.getElementById("resultBtn").disabled = false;
-     // document.getElementById("successResultBtn").disabled = false;
+      document.getElementById("successResultBtn").disabled = false;
+      document.getElementById("queryStatusBtn").disabled = false;
+      document.getElementById("successQueryResultBtn").disabled = false;
 
     }
 
@@ -298,6 +358,76 @@
       else{
         extField.style.display = 'none';
       }
+    }
+
+    function fetchQueryResults(){
+
+      let jobId = document.getElementById("jobIdInputQuery").value;
+      if(jobId != ""){
+        on();
+        var xhttp = new XMLHttpRequest();
+        xhttp.open("POST", "/fetchQueryResults", true);
+        xhttp.setRequestHeader('Content-Type', 'application/json');
+        xhttp.onreadystatechange = function() {
+
+            if (this.readyState == 4 && this.status == 200) {
+              
+              console.log(this.response);
+              footerDiv = document.getElementById("queryResultDiv");
+              removeAllChildren(footerDiv);
+
+              var linkDwn = document.createElement("a");
+              linkDwn.innerHTML = "Download Query Results";
+              linkDwn.href = "/downloadQueriedFile";
+              linkDwn.id = "downloadQueryBtn";
+              linkDwn.className = "button primary";
+              footerDiv.appendChild(linkDwn);
+
+              off();
+            }
+        }
+        xhttp.send(JSON.stringify({ jobId: jobId }));        
+      }
+      else{
+        alert('Please enter a Valid Job Id');
+        return false;
+      } 
+
+    }
+
+    function fetchQueryJobStatus(){
+
+      let jobId = document.getElementById("jobIdIputQueryResults").value;
+      if(jobId != ""){
+        on();
+        var xhttp = new XMLHttpRequest();
+        xhttp.open("POST", "/fetchQueryJobStatus", true);
+        xhttp.setRequestHeader('Content-Type', 'application/json');
+        xhttp.onreadystatechange = function() {
+
+            if (this.readyState == 4 && this.status == 200) {
+              
+              console.log(this.response);
+              var jsonResponse = JSON.parse(this.response);
+              off();
+              if(jsonResponse.status == 'success'){
+                document.getElementById("jobStatusQueryResultDiv").innerHTML = "Job Status : "+ jsonResponse.response.state+
+                "<br/>"+"Number of records Processed : "+jsonResponse.response.numberRecordsProcessed +
+                "<br/>"+"Number of records Failed : "+jsonResponse.response.numberRecordsFailed;
+              }
+              else{
+                alert('Error'+ jsonResponse.error);
+              }
+              
+            }
+        }
+        xhttp.send(JSON.stringify({ jobId: jobId }));        
+      }
+      else{
+        alert('Please enter a Valid Job Id');
+        return false;
+      }
+
     }
 
     function fetchJobStatus(){
