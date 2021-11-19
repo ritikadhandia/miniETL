@@ -48,7 +48,7 @@
                   </div>
                 </p>
                 <footer class="is-right">
-                  <button type="submit" class="button primary" id="extractBtn" onclick="return checkQuery()" disabled>Extract</button>
+                  <button type="submit" class="button primary" id="extractBtn" onclick="return checkQuery()">Extract</button>
                 </footer>
               </div>
               
@@ -411,9 +411,17 @@
               var jsonResponse = JSON.parse(this.response);
               off();
               if(jsonResponse.status == 'success'){
-                document.getElementById("jobStatusQueryResultDiv").innerHTML = "Job Status : "+ jsonResponse.response.state+
+
+                var innerHTML = "Job Status : "+ jsonResponse.response.state+
                 "<br/>"+"Number of records Processed : "+jsonResponse.response.numberRecordsProcessed +
                 "<br/>"+"Number of records Failed : "+jsonResponse.response.numberRecordsFailed;
+
+                if(jsonResponse.response.errorMessage){
+                  innerHTML += "<br/>"+"Error Message : "+jsonResponse.response.errorMessage;
+                }
+
+                document.getElementById("jobStatusQueryResultDiv").innerHTML = innerHTML;
+
               }
               else{
                 alert('Error'+ jsonResponse.error);
@@ -446,9 +454,17 @@
               var jsonResponse = JSON.parse(this.response);
               off();
               if(jsonResponse.status == 'success'){
-                document.getElementById("jobStatusResultDiv").innerHTML = "Job Status : "+ jsonResponse.response.state+
+
+                var innerHTML = "Job Status : "+ jsonResponse.response.state+
                 "<br/>"+"Number of records Processed : "+jsonResponse.response.numberRecordsProcessed +
                 "<br/>"+"Number of records Failed : "+jsonResponse.response.numberRecordsFailed;
+
+                if(jsonResponse.response.errorMessage){
+                  innerHTML += "<br/>"+"Error Message : "+jsonResponse.response.errorMessage;
+                }
+
+
+                document.getElementById("jobStatusResultDiv").innerHTML = innerHTML;
               }
               else{
                 alert('Error'+ jsonResponse.error);
