@@ -19,6 +19,7 @@
     "fast-csv": "^4.3.6",
     "formidable": "^1.2.6",
     "fs": "^0.0.1-security",
+    "multer": "^1.4.3",
     "node-sf-bulk2": "^0.0.23",
     "util": "^0.12.4"
   },
