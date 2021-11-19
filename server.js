@@ -4,6 +4,8 @@ var formidable = require('formidable');
 var http = require('http');
 var https = require('https');
 const bodyParser = require('body-parser');
+const multer = require('multer');
+const upload = multer({ dest: './public/uploads/' });
 var fs = require('fs');
 const util = require('util');
 const csv = require('fast-csv');
@@ -274,6 +276,7 @@ app.post('/uploadSF', function(req, res){
 
 app.post('/transformFile', function(req, res){
 
+    console.log('Transforming');
     var columnParams = req.body.data;
     const writeStream = fs.createWriteStream(outputFile);
     writeStream.on("finish", function(){
@@ -317,43 +320,17 @@ app.post('/transformFile', function(req, res){
 });
 
 
-app.post('/', function(req, res){
+app.post('/', upload.single('csvFile'), function(req, res){
 
-  console.log('Data Ex started');
- 
-  var form = new formidable.IncomingForm(); 
-  form.parse(req, function (err, fields, files) {
+  console.log('Extracting');
 
-    objectName = fields.objectName;
+  objectName = req.body.objectName;
+  if(req.file){
 
-    if(files.csvFile.name != ''){
-      csvFilePath = files.csvFile.path;
+      csvFilePath = req.file.path;
       processCSVFileHeader(csvFilePath)
       .then(function(data){
-        
-        var respData = data;
-        if(sessionResponse){
-          respData.instanceInfo = sessionResponse.instance_url;
-        }
-
-        res.render('pages/main', {
-          headerData: JSON.stringify(respData)
-        });
-
-      })
-    }
-
-    else if(fields.queryText != ''){
-      
-      checkSessionValidaity()
-      .then(function(){
-        return submitBulkQueryJob(fields.queryText)
-      })
-      .then(function(jobId){
-        console.log('bulk query job submitted');
-        return bulkStatusRecursive(jobId);
-      })
-      .then(function(data){
+        console.log('header processed');
         var respData = data;
         if(sessionResponse){
           respData.instanceInfo = sessionResponse.instance_url;
@@ -362,13 +339,32 @@ app.post('/', function(req, res){
           headerData: JSON.stringify(respData)
         });
       })
-      .catch(function(err){
-        res.status(200).json({ status: 'error', error : err });
-      })
-    }
-
-  });
-
+  }
+  else{
+    
+    let queryText = req.body.queryText;
+    checkSessionValidaity()
+    .then(function(){
+      return submitBulkQueryJob(queryText)
+    })
+    .then(function(jobId){
+      console.log('bulk query job submitted');
+      return bulkStatusRecursive(jobId);
+    })
+    .then(function(data){
+      var respData = data;
+      if(sessionResponse){
+        respData.instanceInfo = sessionResponse.instance_url;
+      }
+      res.render('pages/main', {
+        headerData: JSON.stringify(respData)
+      });
+    })
+    .catch(function(err){
+      res.status(200).json({ status: 'error', error : err });
+    })
+  }
+  
 });
 
 function checkSessionValidaity(){
@@ -525,6 +521,7 @@ async function submitBulkQueryJob(queryText){
 
 async function submitBulkUploadJob(operationType, extField){
   try {
+      
       console.log('bulk upload started');
       
       let bulkconnect = {
@@ -544,6 +541,8 @@ async function submitBulkUploadJob(operationType, extField){
       if(operationType == 'upsert'){
         jobRequest["externalIdFieldName"] = extField;
       }
+
+      console.log(jobRequest);
 
       const response = await bulkrequest.createDataUploadJob(jobRequest);
       if (response.id) {
@@ -597,7 +596,7 @@ async function getSuccessfulResults(jobId){
 
 async function getAllBulkQueryResult(jobId, filePath){
 
-  console.log('all query');
+  console.log('fetching results of all batches');
   let sforceLocator;
   let bulkconnect = {
       'accessToken': sessionResponse.access_token,
@@ -861,7 +860,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
           });
         });
         csvStream.end();
-        console.log('csv stream end');
+        console.log('fininshing writing to csv');
         return Promise.resolve({'headers' : Object.keys(results[0][0]) });
 
       });
