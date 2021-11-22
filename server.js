@@ -808,9 +808,7 @@ function randomText(cnt){
 
 function scrambleNumbers(a){
   if(a && a != ''){
-    console.log(a);
     a= numberExponentToLarge(a);
-    console.log(a);
     var sign="";
     a.charAt(0)=="-" && (a = a.substring(1),sign ="-"); // remove - sign & remember it
     var deciSp = 1.1.toLocaleString().substring(1,2);  // Get Deciaml Separator 
@@ -824,7 +822,6 @@ function scrambleNumbers(a){
 }
 
 function numberExponentToLarge(numIn) {
-  console.log('jumble large number');
   numIn +="";                                                   // To cater to numric entries
   var sign="";                                                  // To remember the number sign
   numIn.charAt(0)=="-" && (numIn =numIn.substring(1),sign ="-"); // remove - sign & remember it
@@ -836,9 +833,6 @@ function numberExponentToLarge(numIn) {
   str = str[0].split(deciSp);                        // Split the Base Number into LH and RH at the decimal point
   var baseRH = str[1] || "",                         // RH Base part. Make sure we have a RH fraction else ""
       baseLH = str[0];                               // LH base part.
-
-
-console.log('bases - ' + baseLH + ' ' + baseRH);
 
    if (power>=0) {   // ------- Positive Exponents (Process the RH Base Part)
       if (power> baseRH.length) baseRH +="0".repeat(power-baseRH.length); // Pad with "0" at RH
@@ -884,7 +878,7 @@ function isEmail(a){
 
 
 function concatCSVAndWrite(csvStringsArray, outputFilePath) {
- 
+  console.log('merging all responses..');
   const promises = csvStringsArray.map((csvString, index) => {
     return new Promise((resolve) => {
       const dataArray = [];
