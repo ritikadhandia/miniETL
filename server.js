@@ -280,6 +280,11 @@ app.post('/transformFile', function(req, res){
     var columnParams = req.body.data;
     const writeStream = fs.createWriteStream(outputFile);
     writeStream.on("finish", function(){
+
+
+
+
+
       res.status(200).json({ a: 1 });
     });
 
@@ -608,7 +613,9 @@ async function getAllBulkQueryResult(jobId, filePath){
   const csvStringArray = [];
   do{
       const response = await bulkrequest.getBulkQueryResults(jobId, sforceLocator);
+      console.log(response.data);
       csvStringArray.push(response.data);
+      console.log(csvStringArray);
       sforceLocator = response.headers["sforce-locator"];
       console.log('sforce locator : ' + sforceLocator);
   }
@@ -706,6 +713,9 @@ function transformData(type, a){
       case 'Jumble Up Text':
           a = scramble(a);
           break;
+      case 'Jumble Up Numbers':
+        a = scrambleNumbers(a);
+        break;
       case 'Jumble Up Email':
           a = scrambleEmail(a);
           break;
@@ -796,6 +806,56 @@ function randomText(cnt){
     return result;
 }
 
+function scrambleNumbers(a){
+  if(a && a != ''){
+    console.log(a);
+    a= numberExponentToLarge(a);
+    console.log(a);
+    var sign="";
+    a.charAt(0)=="-" && (a = a.substring(1),sign ="-"); // remove - sign & remember it
+    var deciSp = 1.1.toLocaleString().substring(1,2);  // Get Deciaml Separator 
+    strA = a.split(deciSp);
+    var rhs = (strA[1])? "."+strA[1] : "";
+    a = strA[0];
+    a = scramble(a);
+    return sign+a+rhs;
+  }
+  return a;
+}
+
+function numberExponentToLarge(numIn) {
+  console.log('jumble large number');
+  numIn +="";                                                   // To cater to numric entries
+  var sign="";                                                  // To remember the number sign
+  numIn.charAt(0)=="-" && (numIn =numIn.substring(1),sign ="-"); // remove - sign & remember it
+  var str = numIn.split(/[eE]/g);                                 // Split numberic string at e or E
+  if (str.length<2) return sign+numIn;                   // Not an Exponent Number? Exit with orginal Num back
+  var power = str[1];                                             // Get Exponent (Power) (could be + or -)
+ 
+  var deciSp = 1.1.toLocaleString().substring(1,2);  // Get Deciaml Separator
+  str = str[0].split(deciSp);                        // Split the Base Number into LH and RH at the decimal point
+  var baseRH = str[1] || "",                         // RH Base part. Make sure we have a RH fraction else ""
+      baseLH = str[0];                               // LH base part.
+
+
+console.log('bases - ' + baseLH + ' ' + baseRH);
+
+   if (power>=0) {   // ------- Positive Exponents (Process the RH Base Part)
+      if (power> baseRH.length) baseRH +="0".repeat(power-baseRH.length); // Pad with "0" at RH
+      baseRH = baseRH.slice(0,power) + deciSp + baseRH.slice(power);      // Insert decSep at the correct place into RH base
+       if (baseRH.charAt(baseRH.length-1) ==deciSp) baseRH =baseRH.slice(0,-1); // If decSep at RH end? => remove it
+ 
+   } else {         // ------- Negative exponents (Process the LH Base Part)
+      num= Math.abs(power) - baseLH.length;                               // Delta necessary 0's
+      if (num>0) baseLH = "0".repeat(num) + baseLH;                       // Pad with "0" at LH
+      baseLH = baseLH.slice(0, power) + deciSp + baseLH.slice(power);     // Insert "." at the correct place into LH base
+      if (baseLH.charAt(0) == deciSp) baseLH="0" + baseLH;                // If decSep at LH most? => add "0"
+ 
+   }
+   // Rremove leading and trailing 0's and Return the long number (with sign)
+   return sign + (baseLH + baseRH).replace(/^0*(\d+|\d+\.\d+?)\.?0*$/,"$1");
+ }
+
 function scramble(a){
   a=a.split("");
   for(var b=a.length-1;0<b;b--){
@@ -832,6 +892,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
       return csv
           .parseString(csvString, {headers: headers})
           .on('data', function(data) {
+            console.log(data);
             dataArray.push(data);
           })
           .on('end', function() {
@@ -854,6 +915,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
         
         results.forEach((result, mainCsvIndex) => {
           result.forEach((data, index) => {
+            console.log(data);
             if(mainCsvIndex == 0 || index !=0){
               csvStream.write(data);
             }
