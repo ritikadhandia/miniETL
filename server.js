@@ -219,6 +219,7 @@ app.post('/fetchSuccessfulResults', function(req, res){
 app.post('/fetchQueryResults', function(req, res){
 
   var jobId = req.body.jobId;
+  var locator = req.body.locator;
 
   const writeStream = fs.createWriteStream(queryResultsFile);
   writeStream.on("finish", function(){
@@ -233,7 +234,7 @@ app.post('/fetchQueryResults', function(req, res){
   checkSessionValidaity()
   .then(function(){
     console.log('login finished');
-    return getAllBulkQueryResult(jobId, queryResultsFile);
+    return getAllBulkQueryResult(jobId, locator, queryResultsFile);
   })
   .then(function(responseString){
     res.status(200).json({ a: 1 });
@@ -340,7 +341,7 @@ app.post('/', upload.single('csvFile'), function(req, res){
       return submitBulkQueryJob(queryText)
     })
     .then(function(jobId){
-      console.log('bulk query job submitted');
+      console.log('bulk query job submitted ' + jobId);
       return bulkStatusRecursive(jobId);
     })
     .then(function(data){
@@ -581,10 +582,10 @@ async function getSuccessfulResults(jobId){
 
 }
 
-async function getAllBulkQueryResult(jobId, filePath){
+async function getAllBulkQueryResult(jobId, locator, filePath){
 
   console.log('fetching results of all batches');
-  let sforceLocator;
+  let sforceLocator = locator;
   let bulkconnect = {
       'accessToken': sessionResponse.access_token,
       'apiVersion': '51.0',
@@ -593,16 +594,26 @@ async function getAllBulkQueryResult(jobId, filePath){
 
   const bulkrequest = new sfbulk.BulkAPI2(bulkconnect);
   const csvStringArray = [];
+  var checkMax = false;
+  var maxCnt = 0;
+  if(process.env.maxQueryLocators){
+    checkMax = true;
+    maxCnt = process.env.maxQueryLocators;
+  }
+  var cnt = 0;  
   do{
+      console.log(new Date().toLocaleString() + 'fetching for sforce locator : ' + sforceLocator);
       const response = await bulkrequest.getBulkQueryResults(jobId, sforceLocator);
-      console.log(response.data);
+      cnt++;
       csvStringArray.push(response.data);
-      console.log(csvStringArray);
       sforceLocator = response.headers["sforce-locator"];
-      console.log('sforce locator : ' + sforceLocator);
+      if(checkMax && cnt >= maxCnt){
+        console.log('Max Locators reached. Please note the sforce locator above ');
+        break;
+      }
   }
   while(sforceLocator && sforceLocator != null && sforceLocator != 'null' && sforceLocator != '');
-  return concatCSVAndWrite(csvStringArray, filePath);
+  return concatCSVAndWrite(csvStringArray, filePath, sforceLocator);
 
 }
 
@@ -671,7 +682,7 @@ function bulkStatusRecursive( jobId ) {
         }
         else if(response.state == 'JobComplete'){
             // const result = await bulkapi2.getBulkQueryResults(jobId);
-            return getAllBulkQueryResult(jobId, outputFilePath);
+            return getAllBulkQueryResult(jobId, null,  outputFilePath);
         }
         else if(response.state == 'Aborted' || response.state == 'Failed'){
             return response;
@@ -857,17 +868,16 @@ function isEmail(a){
 }
 
 
-
 function concatCSVAndWrite(csvStringsArray, outputFilePath) {
   console.log('merging all responses..');
   const promises = csvStringsArray.map((csvString, index) => {
     return new Promise((resolve) => {
       const dataArray = [];
       var headers = (index ==0)?true:false;
+      console.log(new Date().toLocaleString() + ' merging each response');
       return csv
           .parseString(csvString, {headers: headers})
           .on('data', function(data) {
-            console.log(data);
             dataArray.push(data);
           })
           .on('end', function() {
@@ -879,7 +889,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
   return Promise.all(promises)
       .then((results) => {
 
-        console.log('all prmises done');
+        console.log(new Date().toLocaleString() + ' all merging done, now writing to file');
         const csvStream = csv.format({headers: true});
         const writableStream = fs.createWriteStream(outputFilePath);
 
@@ -890,7 +900,6 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
         
         results.forEach((result, mainCsvIndex) => {
           result.forEach((data, index) => {
-            console.log(data);
             if(mainCsvIndex == 0 || index !=0){
               csvStream.write(data);
             }

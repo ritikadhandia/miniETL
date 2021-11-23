@@ -222,6 +222,9 @@
                       <h4>Extract Results for Query Job</h4>
                       Enter Job Id
                       <input type="text" id="jobIdInputQuery"/>
+                      <br/>
+                      Enter SForce Locator
+                      <input type="text" id="sforceLocatorInputQuery"/>
                     </div>
                     <div class="col-2 text-right">
                       <img src="https://icongr.am/entypo/check.svg?size=128&color=14854f" class="imgIcon"/>
@@ -363,6 +366,7 @@
     function fetchQueryResults(){
 
       let jobId = document.getElementById("jobIdInputQuery").value;
+      let locator = document.getElementById("sforceLocatorInputQuery").value;
       if(jobId != ""){
         on();
         var xhttp = new XMLHttpRequest();
@@ -386,7 +390,7 @@
               off();
             }
         }
-        xhttp.send(JSON.stringify({ jobId: jobId }));        
+        xhttp.send(JSON.stringify({ jobId: jobId, locator:  locator}));        
       }
       else{
         alert('Please enter a Valid Job Id');
