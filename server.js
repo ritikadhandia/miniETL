@@ -42,7 +42,6 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.listen(PORT, () => console.log(`Listening on ${ PORT }`));
 
-
 /**
  * Step 1 Web Server Flow - Get Code
  */
@@ -53,7 +52,6 @@ app.get('/webServer', function (req,res){
         '&redirect_uri='+ callback_url+
         '&response_type=code';
   res.redirect(url);
-  
 });
 
 /**
@@ -61,7 +59,6 @@ app.get('/webServer', function (req,res){
 */
 app.get('/oauthcallback' ,  function(req,fnres) {
     
-  
   var authCode = req.query.code;
 
   requestAccessToken(authCode)
@@ -280,11 +277,6 @@ app.post('/transformFile', function(req, res){
     var columnParams = req.body.data;
     const writeStream = fs.createWriteStream(outputFile);
     writeStream.on("finish", function(){
-
-
-
-
-
       res.status(200).json({ a: 1 });
     });
 
@@ -315,11 +307,6 @@ app.post('/transformFile', function(req, res){
       .pipe(parse)
       .pipe(transform)
       .pipe(writeStream);
-      /*
-      csv.parseString(csvString, { headers: true })
-      .pipe(transform)
-      .pipe(writeStream);
-      */
   }
 
 });
@@ -376,8 +363,7 @@ function checkSessionValidaity(){
   return new Promise(function(resolve, reject) {
 
     if(sessionResponse){
-
-      // Check if Access Token still Valid
+      // TBD Check if Access Token still Valid
       // Else Exchange Refresh Token for new Access Token
       resolve();
     }
@@ -390,40 +376,39 @@ function checkSessionValidaity(){
 
 
 function httpRequest(post_options,post_data ) {
-    return new Promise(function(resolve, reject) {
-        
-      var post_req = https.request(post_options, function(res) {
-            var respBody = '';
-            res.setEncoding('utf8');
-            res.on('data', function (respData) {
-                respBody += respData;
-            });
-            res.on('end', function(){
-                var response = JSON.parse(respBody);
-                if(!response.error){
-                  resolve(response);    
-                }
-                else{
-                  var errorMessage = response.error_description;
-                  reject(errorMessage);
-                }
-            });
-            res.on('error', function(error){
-                console.log('Error: ' + error);
-                reject(error);
-            });
-        });
-
-        post_req.on('error', function(error){
+    
+  return new Promise(function(resolve, reject) {
+    var post_req = https.request(post_options, function(res) {
+      var respBody = '';
+      res.setEncoding('utf8');
+      res.on('data', function (respData) {
+          respBody += respData;
+      });
+      res.on('end', function(){
+          var response = JSON.parse(respBody);
+          if(!response.error){
+            resolve(response);    
+          }
+          else{
+            var errorMessage = response.error_description;
+            reject(errorMessage);
+          }
+      });
+      res.on('error', function(error){
           console.log('Error: ' + error);
           reject(error);
       });
+    });
+
+    post_req.on('error', function(error){
+      console.log('Error: ' + error);
+      reject(error);
+    });
     // post the data
     post_req.write(post_data);
     post_req.end();
     });
 }
-
 
 function requestAccessToken(authCode){
 
@@ -445,11 +430,9 @@ function requestAccessToken(authCode){
   return httpRequest(post_options, post_data);
 }
 
-
 function processCSVFileHeader(filePath){
 
   return new Promise(function(resolve, reject){
-
       const parse = csv.parse({ headers: true });
       var headersDataResult = {};
       parse.on('headers', function(headers){
@@ -598,7 +581,6 @@ async function getSuccessfulResults(jobId){
 
 }
 
-
 async function getAllBulkQueryResult(jobId, filePath){
 
   console.log('fetching results of all batches');
@@ -623,7 +605,6 @@ async function getAllBulkQueryResult(jobId, filePath){
   return concatCSVAndWrite(csvStringArray, filePath);
 
 }
-
 
 async function getFailedResults(jobId){
 
