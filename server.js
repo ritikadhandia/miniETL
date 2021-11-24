@@ -27,7 +27,7 @@ const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
 const successfulResultsFile = __dirname + '/successfulResults.csv';
 const queryResultsFile = __dirname + '/queryResults.csv';
-const outputFilePath = __dirname+'/testmergedoutput.csv';
+const queryFetchFile = __dirname+'/testmergedoutput.csv';
 
 // Global variables to be used between calls
 var csvFilePath;
@@ -221,16 +221,6 @@ app.post('/fetchQueryResults', function(req, res){
   var jobId = req.body.jobId;
   var locator = req.body.locator;
 
-  const writeStream = fs.createWriteStream(queryResultsFile);
-  writeStream.on("finish", function(){
-    res.status(200).json({ a: 1 });
-  });
-
-  const transform = csv.format({ headers: true })
-    .transform((row) => {
-      return row;
-  });
-
   checkSessionValidaity()
   .then(function(){
     console.log('login finished');
@@ -238,11 +228,6 @@ app.post('/fetchQueryResults', function(req, res){
   })
   .then(function(responseString){
     res.status(200).json({ a: 1 });
-  /*
-    csv.parseString(responseString, { headers: true })
-    .pipe(transform)
-    .pipe(writeStream);
-  */
   })
   .catch(function (error) {
     console.log(error);
@@ -304,7 +289,7 @@ app.post('/transformFile', function(req, res){
     }
     else {
       const parse = csv.parse({ headers: true });
-      const stream = fs.createReadStream(outputFilePath)
+      const stream = fs.createReadStream(queryFetchFilePath)
       .pipe(parse)
       .pipe(transform)
       .pipe(writeStream);
@@ -602,7 +587,7 @@ async function getAllBulkQueryResult(jobId, locator, filePath){
   }
   var cnt = 0;  
   do{
-      console.log(new Date().toLocaleString() + 'fetching for sforce locator : ' + sforceLocator);
+      console.log(new Date().toLocaleString() + ' fetching for sforce locator : ' + sforceLocator);
       const response = await bulkrequest.getBulkQueryResults(jobId, sforceLocator);
       cnt++;
       csvStringArray.push(response.data);
@@ -613,7 +598,7 @@ async function getAllBulkQueryResult(jobId, locator, filePath){
       }
   }
   while(sforceLocator && sforceLocator != null && sforceLocator != 'null' && sforceLocator != '');
-  return concatCSVAndWrite(csvStringArray, filePath, sforceLocator);
+  return concatCSVAndWrite(csvStringArray, filePath);
 
 }
 
@@ -629,34 +614,6 @@ async function getFailedResults(jobId){
   const response = await bulkrequest.getResults(jobId, 'failedResults');
   return Promise.resolve(response);
 
-}
-
-async function loginProcess(){
-
-  /*
-  if (process.env.username && process.env.password) {
-      const conn = new jsforce.Connection({
-        loginUrl : process.env.loginurl
-      });
-      await conn.login(process.env.username, process.env.password, function(err, userInfo){
-        if (err) { 
-          console.log(err);
-          return Promise.reject(err); 
-        }
-        else{
-          bulkconnect = {
-              'accessToken': conn.accessToken,
-              'apiVersion': '51.0',
-              'instanceUrl': conn.instanceUrl
-          };
-          return Promise.resolve();
-        }
-      });
-  }
-  else {
-      return Promise.reject('Incorrect Credentials');  
-  }
-  */
 }
 
 function asyncThing( asyncParam) { // example operation
@@ -682,7 +639,7 @@ function bulkStatusRecursive( jobId ) {
         }
         else if(response.state == 'JobComplete'){
             // const result = await bulkapi2.getBulkQueryResults(jobId);
-            return getAllBulkQueryResult(jobId, null,  outputFilePath);
+            return getAllBulkQueryResult(jobId, null,  queryFetchFile);
         }
         else if(response.state == 'Aborted' || response.state == 'Failed'){
             return response;
@@ -870,6 +827,7 @@ function isEmail(a){
 
 function concatCSVAndWrite(csvStringsArray, outputFilePath) {
   console.log('merging all responses..');
+  console.log('responses size -' + csvStringsArray.length);
   const promises = csvStringsArray.map((csvString, index) => {
     return new Promise((resolve) => {
       const dataArray = [];
