@@ -281,8 +281,8 @@ app.post('/transformFile', function(req, res){
     });
 
     if(csvFilePath){
-      const parse = csv.parse({ headers: true });
-      //.validate(data => (data.OfficeEmailValidation_OTP__c != '' || data.Mobilenumber__c != '' || data.Email__c  != ''));
+      const parse = csv.parse({ headers: true })
+      .validate(data => (data.New_Mobile_Number__c != '' ));
       const stream = fs.createReadStream(csvFilePath)
       .pipe(parse)
       .pipe(transform)
@@ -305,8 +305,9 @@ app.post('/', upload.single('csvFile'), function(req, res){
 
   objectName = req.body.objectName;
   if(req.file){
-
+      
       csvFilePath = req.file.path;
+      console.log(csvFilePath);
       processCSVFileHeader(csvFilePath)
       .then(function(data){
         console.log('header processed');
@@ -420,6 +421,15 @@ function requestAccessToken(authCode){
 function processCSVFileHeader(filePath){
 
   return new Promise(function(resolve, reject){
+
+      const writeStream = fs.createWriteStream(testFile);
+      writeStream.on("finish", function(){
+        console.log('done');
+        //res.status(200).json({ a: 1 });
+      });
+
+      const transform = csv.format({ headers: true })
+
       const parse = csv.parse({ headers: true });
       var headersDataResult = {};
       parse.on('headers', function(headers){
@@ -432,7 +442,7 @@ function processCSVFileHeader(filePath){
       })
       .on('data', row => {})
       .on('end', rowCount => {
-
+        
         console.log(`Parsed ${rowCount} rows`);
         headersDataResult.rowCount = rowCount;
         resolve(headersDataResult);
@@ -440,31 +450,8 @@ function processCSVFileHeader(filePath){
       });
 
       const stream = fs.createReadStream(filePath)
-      .pipe(parse);
+      .pipe(parse)
 
-  });
-
-}
-
-function processCSVStringHeader(data){
-
-  return new Promise(function(resolve, reject){
-
-    var headersDataResult = {};
-    csv.parseString(data, { headers: true })
-      .on('headers', function(headers){
-          headersDataResult.headers = headers;
-      })
-      .on('error', error => {
-        reject(error)
-      })
-      .on('data', row => {})
-      .on('end', rowCount => {
-        
-        console.log(`Parsed ${rowCount} rows`);
-        headersDataResult.rowCount = rowCount;
-        resolve(headersDataResult);
-      });
   });
 
 }
@@ -687,7 +674,9 @@ function transformData(type, a){
           a = ''
           break;
       case '#NA':
-          a = '#N/A';
+          if(a && a != ''){
+            a = '#N/A';
+          }
           break;
       case 'No Change':
           break;
@@ -823,10 +812,10 @@ function scrambleEmail(a){
 }
 
 function isEmail(a){
-    var pattern = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/; 
+    var pattern = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+    //var pattern = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/; 
     return a.match(pattern);    
 }
-
 
 function concatCSVAndWrite(csvStringsArray, outputFilePath) {
   console.log('merging all responses..');
