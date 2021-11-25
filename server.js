@@ -27,7 +27,7 @@ const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
 const successfulResultsFile = __dirname + '/successfulResults.csv';
 const queryResultsFile = __dirname + '/queryResults.csv';
-const queryFetchFile = __dirname+'/testmergedoutput.csv';
+const queryFetchFile = __dirname+'/bulkQueryResult.csv';
 
 // Global variables to be used between calls
 var csvFilePath;
@@ -282,6 +282,7 @@ app.post('/transformFile', function(req, res){
 
     if(csvFilePath){
       const parse = csv.parse({ headers: true });
+      //.validate(data => (data.OfficeEmailValidation_OTP__c != '' || data.Mobilenumber__c != '' || data.Email__c  != ''));
       const stream = fs.createReadStream(csvFilePath)
       .pipe(parse)
       .pipe(transform)
@@ -289,7 +290,7 @@ app.post('/transformFile', function(req, res){
     }
     else {
       const parse = csv.parse({ headers: true });
-      const stream = fs.createReadStream(queryFetchFilePath)
+      const stream = fs.createReadStream(queryFetchFile)
       .pipe(parse)
       .pipe(transform)
       .pipe(writeStream);
@@ -593,7 +594,7 @@ async function getAllBulkQueryResult(jobId, locator, filePath){
       csvStringArray.push(response.data);
       sforceLocator = response.headers["sforce-locator"];
       if(checkMax && cnt >= maxCnt){
-        console.log('Max Locators reached. Please note the sforce locator above ');
+        console.log('Max Locators reached. Please note the sforce locator to start with again - '+ sforceLocator);
         break;
       }
   }
@@ -666,7 +667,9 @@ function transformData(type, a){
         a = scrambleNumbers(a);
         break;
       case 'Jumble Up Email':
+          console.log(a);
           a = scrambleEmail(a);
+          console.log(a);
           break;
       case 'Random Phone':
           a = randomPhone(a);
@@ -852,6 +855,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
         const writableStream = fs.createWriteStream(outputFilePath);
 
         writableStream.on('finish', function() {
+          console.log('CSV writing complete')
         });
 
         csvStream.pipe(writableStream);
@@ -864,7 +868,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
           });
         });
         csvStream.end();
-        console.log('fininshing writing to csv');
+        console.log('writing to csv');
         return Promise.resolve({'headers' : Object.keys(results[0][0]) });
 
       });
