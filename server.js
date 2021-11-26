@@ -274,7 +274,8 @@ app.post('/transformFile', function(req, res){
      
         if(columnParams[key] != 'Exclude'){
           var a = row[key]?row[key]:'';
-          returnVal[key] = transformData(columnParams[key], a);        }
+          returnVal[key] = transformData(columnParams[key], a);        
+        }
      
       });
       return returnVal;
@@ -818,13 +819,12 @@ function isEmail(a){
 }
 
 function concatCSVAndWrite(csvStringsArray, outputFilePath) {
-  console.log('merging all responses..');
+  console.log(new Date().toLocaleString() + ' merging all responses..');
   console.log('responses size -' + csvStringsArray.length);
   const promises = csvStringsArray.map((csvString, index) => {
     return new Promise((resolve) => {
       const dataArray = [];
       var headers = (index ==0)?true:false;
-      console.log(new Date().toLocaleString() + ' merging each response');
       return csv
           .parseString(csvString, {headers: headers})
           .on('data', function(data) {
@@ -839,26 +839,27 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
   return Promise.all(promises)
       .then((results) => {
 
-        console.log(new Date().toLocaleString() + ' all merging done, now writing to file');
-        const csvStream = csv.format({headers: true});
-        const writableStream = fs.createWriteStream(outputFilePath);
+        return new Promise((resolve, reject) => {
+          console.log(new Date().toLocaleString() + ' all merging done, now writing to file');
+          const csvStream = csv.format({headers: true});
+          const writableStream = fs.createWriteStream(outputFilePath);
 
-        writableStream.on('finish', function() {
-          console.log('CSV writing complete')
-        });
-
-        csvStream.pipe(writableStream);
-        
-        results.forEach((result, mainCsvIndex) => {
-          result.forEach((data, index) => {
-            if(mainCsvIndex == 0 || index !=0){
-              csvStream.write(data);
-            }
+          writableStream.on('finish', function() {
+            console.log('CSV writing complete')
+            resolve({'headers' : Object.keys(results[0][0]) });
           });
-        });
-        csvStream.end();
-        console.log('writing to csv');
-        return Promise.resolve({'headers' : Object.keys(results[0][0]) });
 
+          csvStream.pipe(writableStream);
+          
+          results.forEach((result, mainCsvIndex) => {
+            result.forEach((data, index) => {
+              if(mainCsvIndex == 0 || index !=0){
+                csvStream.write(data);
+              }
+            });
+          });
+          csvStream.end();
+          console.log('writing to csv');
+          });
       });
 }
