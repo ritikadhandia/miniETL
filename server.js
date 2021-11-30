@@ -11,6 +11,7 @@ const util = require('util');
 const csv = require('fast-csv');
 const dotenv = require('dotenv');
 
+
 dotenv.config();
 //const jsforce = require('jsforce');
 const sfbulk = require('node-sf-bulk2');
@@ -28,6 +29,7 @@ const failedResultsFile = __dirname + '/failedResults.csv';
 const successfulResultsFile = __dirname + '/successfulResults.csv';
 const queryResultsFile = __dirname + '/queryResults.csv';
 const queryFetchFile = __dirname+'/bulkQueryResult.csv';
+
 
 // Global variables to be used between calls
 var csvFilePath;
@@ -422,14 +424,6 @@ function requestAccessToken(authCode){
 function processCSVFileHeader(filePath){
 
   return new Promise(function(resolve, reject){
-
-      const writeStream = fs.createWriteStream(testFile);
-      writeStream.on("finish", function(){
-        console.log('done');
-        //res.status(200).json({ a: 1 });
-      });
-
-      const transform = csv.format({ headers: true })
 
       const parse = csv.parse({ headers: true });
       var headersDataResult = {};
@@ -839,6 +833,8 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
       .then((results) => {
 
         return new Promise((resolve, reject) => {
+          // clear out csvStrings Array, save some memory
+          csvStringsArray = [];
           console.log(new Date().toLocaleString() + ' all merging done, now writing to file');
           const csvStream = csv.format({headers: true});
           const writableStream = fs.createWriteStream(outputFilePath);
