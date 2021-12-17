@@ -12,6 +12,9 @@ const csv = require('fast-csv');
 const dotenv = require('dotenv');
 
 
+//const columnsToClear = ['BillingStreet','BillingCity','BillingState','BillingPostalCode','ShippingStreet','ShippingCity','ShippingState','ShippingPostalCode','Description','Email_List__c','Pincode__c','GSTIN__c','Salespoint_Address__c','Latitude_of_Salespoint_Address__c','Longitude_of_Salespoint_Address__c'];
+const columnsToClear = ['BillingStreet'];
+
 dotenv.config();
 //const jsforce = require('jsforce');
 const sfbulk = require('node-sf-bulk2');
@@ -22,7 +25,6 @@ const PORT = process.env.PORT || 5000
 var consumer_key = '3MVG9d8..z.hDcPI89tOplGirN9Ae17MVEa5ZpkY_yALFchiG9UPuYujA3A.GTA7h4sZFKtfLfIbJA8bXhmuD'
 var consumer_secret = '8A324DFF62E0583F21097B1BFABB7D160C573D059AFF04D40053F43A82E938A9';
 var callback_url = 'http://localhost:5000/oauthcallback';
-//var sessionResponse;
 
 const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
@@ -280,12 +282,16 @@ app.post('/transformFile', function(req, res){
         }
      
       });
+
+      columnsToClear.forEach(function(col){
+        returnVal[col] = '#N/A';
+      })
+
       return returnVal;
     });
 
     if(csvFilePath){
       const parse = csv.parse({ headers: true })
-      .validate(data => (data.New_Mobile_Number__c != '' ));
       const stream = fs.createReadStream(csvFilePath)
       .pipe(parse)
       .pipe(transform)
@@ -336,6 +342,7 @@ app.post('/', upload.single('csvFile'), function(req, res){
     })
     .then(function(data){
       var respData = data;
+      console.log(respData);
       if(sessionResponse){
         respData.instanceInfo = sessionResponse.instance_url;
       }
@@ -834,6 +841,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
 
         return new Promise((resolve, reject) => {
           // clear out csvStrings Array, save some memory
+          let rowCount = -1;
           csvStringsArray = [];
           console.log(new Date().toLocaleString() + ' all merging done, now writing to file');
           const csvStream = csv.format({headers: true});
@@ -841,7 +849,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
 
           writableStream.on('finish', function() {
             console.log('CSV writing complete')
-            resolve({'headers' : Object.keys(results[0][0]) });
+            resolve({'headers' : Object.keys(results[0][0]) , 'rowCount': rowCount});
           });
 
           csvStream.pipe(writableStream);
@@ -849,6 +857,7 @@ function concatCSVAndWrite(csvStringsArray, outputFilePath) {
           results.forEach((result, mainCsvIndex) => {
             result.forEach((data, index) => {
               if(mainCsvIndex == 0 || index !=0){
+                rowCount++;
                 csvStream.write(data);
               }
             });
