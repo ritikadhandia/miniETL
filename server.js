@@ -11,13 +11,15 @@ const util = require('util');
 const csv = require('fast-csv');
 const dotenv = require('dotenv');
 
+var outputFilesWritten = 0;
 
 //const columnsToClear = ['BillingStreet','BillingCity','BillingState','BillingPostalCode','ShippingStreet','ShippingCity','ShippingState','ShippingPostalCode','Description','Email_List__c','Pincode__c','GSTIN__c','Salespoint_Address__c','Latitude_of_Salespoint_Address__c','Longitude_of_Salespoint_Address__c'];
-const columnsToClear = ['BillingStreet'];
+const columnsToClear = [];
 
 dotenv.config();
 //const jsforce = require('jsforce');
 const sfbulk = require('node-sf-bulk2');
+const { resolve } = require('path');
 const characters  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const pollFreqency = process.env.pollfrequency || 10000;
 const PORT = process.env.PORT || 5000
@@ -26,6 +28,8 @@ var consumer_key = '3MVG9d8..z.hDcPI89tOplGirN9Ae17MVEa5ZpkY_yALFchiG9UPuYujA3A.
 var consumer_secret = '8A324DFF62E0583F21097B1BFABB7D160C573D059AFF04D40053F43A82E938A9';
 var callback_url = 'http://localhost:5000/oauthcallback';
 
+
+const outputFileDir = __dirname+'/output/';
 const outputFile = __dirname + '/output.csv';
 const failedResultsFile = __dirname + '/failedResults.csv';
 const successfulResultsFile = __dirname + '/successfulResults.csv';
@@ -247,18 +251,27 @@ app.post('/uploadSF', function(req, res){
 
   checkSessionValidaity()
   .then(function(){
-    return submitBulkUploadJob(opType, extField)
+    return splitIntoMultipleCSV();
   })
-  .then(function(jobId){
+  .then(function(){
+    console.log('All CSV Split');
+    return submitBulkUploadJobMultiple(opType, extField);
+    //return submitBulkUploadJob(opType, extField, outputFile);
+  })
+  .then(function(){
+    console.log('After all Submitted')
+    /*
     fs.unlink(outputFile, function(err){
       console.log('File Removed');
     });
-    console.log('upload job started with job id '+jobId);
-    res.status(200).json({ status: 'success', jobId: jobId});
+    */
+    console.log('upload jobs started - see console for job ids');
+    res.status(200).json({ status: 'success', jobId: 'Multiple Job Ids - See console'});
   })
   .catch(function (error) {
     res.status(200).json({ status: 'error', error : error });
   });
+  
 })
 
 app.post('/transformFile', function(req, res){
@@ -275,12 +288,10 @@ app.post('/transformFile', function(req, res){
       
       let returnVal = {};
       Object.keys(columnParams).forEach(function(key){
-     
         if(columnParams[key] != 'Exclude'){
           var a = row[key]?row[key]:'';
           returnVal[key] = transformData(columnParams[key], a);        
         }
-     
       });
 
       columnsToClear.forEach(function(col){
@@ -483,7 +494,7 @@ async function submitBulkQueryJob(queryText){
     }
 }
 
-async function submitBulkUploadJob(operationType, extField){
+async function submitBulkUploadJob(operationType, extField, outputFilePath){
   try {
       
       console.log('bulk upload started');
@@ -512,13 +523,13 @@ async function submitBulkUploadJob(operationType, extField){
       if (response.id) {
           console.log('upload job created' + response.id);
           // read csv data from the local file system
-          const data = await util.promisify(fs.readFile)(outputFile, "UTF-8");
+          const data = await util.promisify(fs.readFile)(outputFilePath, "UTF-8");
           const status = await bulkrequest.uploadJobData(response.contentUrl, data);
           if (status === 201) {
               // close the job for processing
               await bulkrequest.closeOrAbortJob(response.id, 'UploadComplete');
               console.log('upload job subimtted' + response.id);
-              return Promise.resolve(response.id);
+              return Promise.resolve();
           }
       }
       else{
@@ -816,6 +827,47 @@ function scrambleEmail(a){
 function isEmail(a){
     var pattern = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
     return a.match(pattern);    
+}
+
+function splitIntoMultipleCSV(){
+
+  return new Promise((resolve, reject) => {
+    const datas = {}; 
+    const options = {headers: true}; // relative to your CSV usage
+    let rowCnt = 0;
+    let splitNo = 0;
+    let splitRowCount = process.env.splitRowsCount;
+    datas[splitNo] = [];
+    csv
+    .parseFile(outputFile, options)
+    .on('data', d => {
+        datas[splitNo].push(d);
+        rowCnt ++;
+        if(rowCnt == splitRowCount){
+          rowCnt = 0;
+          splitNo ++;
+          datas[splitNo] = [];
+        }
+    })
+    .on('end', () => {
+      outputFilesWritten = splitNo+1;
+      Object.keys(datas).forEach(splitNo => {
+            // For each ID, write a new CSV file
+            csv
+            .write(datas[splitNo], options)
+            .pipe(fs.createWriteStream(outputFileDir +`output-${splitNo}.csv`));
+        })
+        resolve();
+    });
+  })
+}
+
+async function submitBulkUploadJobMultiple(operationType, extField){
+
+  for(let i=0; i<outputFilesWritten; i++){
+      await submitBulkUploadJob(operationType, extField, outputFileDir +`output-${i}.csv`);
+  }
+  return Promise.resolve();
 }
 
 function concatCSVAndWrite(csvStringsArray, outputFilePath) {
