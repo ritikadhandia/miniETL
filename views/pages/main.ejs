@@ -322,7 +322,7 @@
         hdrDiv.className = "row";
       
         var hdrRowCol = document.createElement("div");
-        hdrRowCol.className = "col-6";
+        hdrRowCol.className = "col-4";
 
           var hdrCol = document.createElement("div");
           hdrCol.innerHTML = header;
@@ -331,7 +331,7 @@
         hdrDiv.appendChild(hdrRowCol);
 
         hdrRowCol = document.createElement("div");
-        hdrRowCol.className = "col-6";
+        hdrRowCol.className = "col-4";
 
           var itemCombo = actionSelect.cloneNode(true);
           itemCombo.name = header;
@@ -339,6 +339,18 @@
           itemCombo.className = "actionItem";
           
         hdrRowCol.appendChild(itemCombo);
+        hdrDiv.appendChild(hdrRowCol);
+
+        hdrRowCol = document.createElement("div");
+        hdrRowCol.className = "col-4";
+
+          var headerName = document.createElement("input");
+          headerName.name = header+"_Title";
+          headerName.id = header+"_Title";
+          headerName.className = "actionItem";
+          headerName.value = header;
+          
+        hdrRowCol.appendChild(headerName);
         hdrDiv.appendChild(hdrRowCol);
 
         headersDiv.appendChild(hdrDiv);
@@ -635,10 +647,22 @@
       
       let allActions = document.getElementsByClassName('actionItem');
       var data = {};
+      var headerNames = [];
+
       [...allActions].forEach(function(element){
         data[element.name] = element.value;
+        //headerNames[element.name] = element.value
       });
-      xhttp.send(JSON.stringify({ data: data }));
+
+      console.log(data);
+
+      headerDataJSON.headers.forEach(function(hdr){
+        let key = hdr+'_'+'Title';
+        headerNames.push(data[key]);
+      }); 
+
+      console.log(headerNames);
+      xhttp.send(JSON.stringify({ data: data, headers:headerNames }));
       
     }
 

@@ -74,6 +74,7 @@ app.get('/oauthcallback' ,  function(req,fnres) {
     // Save in persistent variable
     console.log('OAuth Login Successful');
     sessionResponse = response;
+    console.log(sessionResponse);
     var headersData = {
       "headers":[],
       "instanceInfo":response.instance_url
@@ -278,12 +279,13 @@ app.post('/transformFile', function(req, res){
 
     console.log('Transforming');
     var columnParams = req.body.data;
+    var headerNames = req.body.headers;
     const writeStream = fs.createWriteStream(outputFile);
     writeStream.on("finish", function(){
       res.status(200).json({ a: 1 });
     });
 
-    const transform = csv.format({ headers: true })
+    const transform = csv.format({ headers: headerNames })
     .transform((row) => {
       
       let returnVal = {};
@@ -302,7 +304,7 @@ app.post('/transformFile', function(req, res){
     });
 
     if(csvFilePath){
-      const parse = csv.parse({ headers: true })
+      const parse = csv.parse({ headers: headerNames })
       const stream = fs.createReadStream(csvFilePath)
       .pipe(parse)
       .pipe(transform)
