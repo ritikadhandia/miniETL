@@ -22,11 +22,13 @@ const sfbulk = require('node-sf-bulk2');
 const { resolve } = require('path');
 const characters  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const pollFreqency = process.env.pollfrequency || 10000;
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 8080
 
 var consumer_key = '3MVG9d8..z.hDcPI89tOplGirN9Ae17MVEa5ZpkY_yALFchiG9UPuYujA3A.GTA7h4sZFKtfLfIbJA8bXhmuD'
 var consumer_secret = '8A324DFF62E0583F21097B1BFABB7D160C573D059AFF04D40053F43A82E938A9';
-var callback_url = 'http://localhost:5000/oauthcallback';
+var callback_url = 'http://localhost:8080/oauthcallback';
+
+const allmasters = ['Bank_Branch_Master__c','Branch_Master__c','Branch_Product_Master__c','Branch_Product_Region_Master__c','Branch_User_Master__c','Channel_Profile_Master__c','City_Master__c','Communication_Master__c','Condition_Master__c','Contest_Master__c','Country_Master__c','Deferral_Request_Approver_Master__c','Disbursal_Memo_Favoring_Details_Master__c','Document_Master__c','EMI_Date_Master__c','Employer_Master__c','Financier_Master__c','Foreclosure_Deviation_Master__c','Insurance_Deviation_Master__c','Insurance_Master__c','Negative_Profile_Master__c','NFA_Master__c','OD_Tenure_master__c','Perfios_Bank_Master__c','Pincode_Master__c','Pricing_Deviation_Master__c','Principal_Distribution_Master__c','Product_Master__c','Product_User_Master__c','Promo_Code_Master__c','Rejection_Cancellation_Reason_Master__c','SBI_Designation_Master__c','SBI_Employer_Master__c','SBI_Pincode_Master__c','Scheme_Master__c','Scheme_Selection_Master__c','Special_Pricing_Master__c','Stamp_Duty_Master__c','State_Master__c','VKYC_Master__c','Integration_Master__c','Insurance_Plans_Validations__c','Insurance_Rates__c','Questionnaire_Question__c','Questionnaire_Configuration__c','Questionnaire_Answer__c','Questionnaire_Section__c','Disbursal_Memo_Favoring_Details_Master__c'];
 
 
 const outputFileDir = __dirname+'/output/';
@@ -143,6 +145,28 @@ app.get('/downloadQueriedFile', (req, res) => {
   });
 
 });
+
+app.get('/copySharingRuleFile', (req, res) => {
+
+  allmasters.forEach((masterName) =>{
+      copyFile('Applicant_Relationship_Master__c.sharingRules-meta.xml', masterName+'.sharingRules-meta.xml');
+  })
+
+
+});
+
+function copyFile(sourceFileName, targetFileName) {
+  const sourcePath = path.join(__dirname, sourceFileName);
+  const targetPath = path.join(__dirname, targetFileName);
+
+  fs.copyFile(sourcePath, targetPath, (err) => {
+    if (err) {
+      console.error(`Error copying the file: ${err.message}`);
+    } else {
+      console.log(`File copied from ${sourceFileName} to ${targetFileName}`);
+    }
+  });
+}
 
 app.post('/fetchJobStatus', function(req, res){
 
