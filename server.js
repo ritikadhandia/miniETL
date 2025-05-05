@@ -712,6 +712,9 @@ function transformData(type, a){
       case 'Clear':
           a = ''
           break;
+      case 'Mask with X':
+          a = a.replace(/./g, 'X');
+          break;
       case '#NA':
           if(a && a != ''){
             a = '#N/A';
